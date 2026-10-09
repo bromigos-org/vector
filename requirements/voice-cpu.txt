@@ -1,0 +1,8 @@
+# VECTOR's voice without a GPU: Kokoro (CPU) and Whisper small. `bromigos-holo setup voice-cpu`
+# installs these into ~/.local/share/bromigos/venv-tts.
+faster-whisper>=1.2
+kokoro-onnx>=0.6
+onnx-asr>=0.12
+soundfile>=0.13
+scipy>=1.13
+numpy>=2.0

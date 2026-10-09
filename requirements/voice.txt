@@ -1,0 +1,12 @@
+# VECTOR's voice with a GPU: Qwen3-TTS (the designed caretaker voice), Whisper, Kokoro.
+# `bromigos-holo setup voice` installs these into ~/.local/share/bromigos/venv-tts
+# (Python 3.12, as torch needs).
+torch>=2.6
+faster-qwen3-tts>=0.5.3
+qwen-tts-hf>=0.1.1
+faster-whisper>=1.2
+kokoro-onnx>=0.6
+onnx-asr>=0.12
+soundfile>=0.13
+scipy>=1.13
+numpy>=2.0

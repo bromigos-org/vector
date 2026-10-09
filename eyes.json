@@ -1,0 +1,10 @@
+{
+  "_comment": "VECTOR's eyes (holo/vector/eyes.py): the package's defaults. Yours goes in ~/.config/bromigos/vector/eyes.json. model: a multimodal model on your endpoint (empty: llm.py's vision default). Captures stay in memory. block adds to the built-in blocklist (password managers; banking, trading and wallet sites; Vault; private browsing): any visible window whose app class or title matches means no capture at all.",
+  "model": "",
+  "max_side": 1920,
+  "text_max_side": 2560,
+  "block": {
+    "classes": [],
+    "titles": []
+  }
+}

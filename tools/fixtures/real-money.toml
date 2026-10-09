@@ -1,0 +1,16 @@
+# Made-up real-money systems for the tests (holo/vector/money.py). The tests point
+# $VECTOR_REAL_MONEY here, which adds these rules to the config in force: a user's own
+# names, in their vector.toml, are tested as well, never replaced.
+[real_money]
+services = ["ledger-live"]
+hosts = ["https://ledger.lab.example"]
+systems = ["ledger"]
+titles = ['\bledger\b.*\blive\b']
+about = "the ledger's order route, the ledger-live service"
+refuse = [
+  {match = '/api/orders\b', what = "the ledger's order route"},
+]
+
+[real_money.code]
+"example-org/ledger" = ["engine/internal/live/", "engine/migrations/*live*", "console/app/*/wallet/"]
+"bromigos-org/homelab" = ["helm/ledger/templates/live.yaml"]

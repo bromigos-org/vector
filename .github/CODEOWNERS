@@ -1,0 +1,54 @@
+# The code behind VECTOR's limits: the operator reviews and merges every change to it.
+# Made from LIMITS in bromigos-org/vector holo/vector/devflow.py: bromigos-holo work codeowners
+# vector. VECTOR's merge tool refuses a pull request that touches these paths.
+
+/holo/vector/shell.py @blackflame007
+/holo/vector/guard.py @blackflame007
+/holo/vector/build.py @blackflame007
+/holo/vector/buildtask.py @blackflame007
+/holo/vector/tools.py @blackflame007
+/holo/vector/act.py @blackflame007
+/holo/vector/vault.py @blackflame007
+/holo/vector/track.py @blackflame007
+/holo/vector/nolgia.py @blackflame007
+/holo/vector/desk.py @blackflame007
+/holo/vector/reach.py @blackflame007
+/holo/vector/brain.py @blackflame007
+/holo/vector/brain_pai.py @blackflame007
+/holo/vector/mcp_server.py @blackflame007
+/holo/vector/persona.py @blackflame007
+/holo/vector/skills.py @blackflame007
+/holo/vector/events.py @blackflame007
+/holo/vector/memory.py @blackflame007
+/holo/vector/browser.py @blackflame007
+/holo/vector/plugins.py @blackflame007
+/holo/vector/llm.py @blackflame007
+/holo/vector/create.py @blackflame007
+/holo/vector/money.py @blackflame007
+/tools/test-shell.py @blackflame007
+/tools/test-act.py @blackflame007
+/tools/test-desk.py @blackflame007
+/tools/test-build.py @blackflame007
+/tools/test-browser.py @blackflame007
+/tools/test-ext-guard.py @blackflame007
+/tools/test-plugin-systems.py @blackflame007
+/bin/bromigos-holo @blackflame007
+/nolgia.json @blackflame007
+/holo/app.py @blackflame007
+/holo/paths.py @blackflame007
+/tools/holo/gen3d.py @blackflame007
+/tools/holo/collection.py @blackflame007
+/holo/targets.py @blackflame007
+/holo/vector/lab.py @blackflame007
+/tools/test-lab.py @blackflame007
+/holo/vector/switch.py @blackflame007
+/tools/test-switch.py @blackflame007
+/holo/vector/devflow.py @blackflame007
+/tools/test-devflow.py @blackflame007
+/holo/vector/devflow.py @blackflame007
+/tools/test-devflow.py @blackflame007
+/lib/privacy_guard.py @blackflame007
+/packaging/ci/ @blackflame007
+/.github/ @blackflame007
+/CODEOWNERS @blackflame007
+/docs/CODEOWNERS @blackflame007

@@ -1,0 +1,40 @@
+{
+  "_comment": "Hologram models. Boxes are [x0,x1, y0,y1, z0,z1] in fractions of the normalised bounding box (y up, front +z); a face goes to the first part whose box holds its centroid, else to the part with rest=true. bind names the live reading a part shows (VECTOR's holo/bind.py); requires names a capability the model needs to mean anything (it is hidden without it). Sources are in src/; the baked NAME.holo.npz sit next to this file. Rebake: ~/.local/share/bromigos/venv/bin/python /usr/lib/bromigos/vector/tools/holo/bake.py --root THIS_DIR --preview",
+  "models": {
+    "workstation": {
+      "title": "WORKSTATION", "subtitle": "this machine", "source": "src/workstation.glb", "faces": 40000, "max_edges": 16000,
+      "parts": [
+        {"id": "cpu", "label": "CPU", "bind": "ws.cpu", "hint": "Processor and its tower cooler: load across all cores, package temperature", "boxes": [[0.18, 0.43, 0.56, 0.93, 0.25, 1.0]], "explode": [0, 0.35, 1], "distance": 0.32},
+        {"id": "ram", "label": "MEMORY", "bind": "ws.ram", "hint": "System memory: used of total, swap", "boxes": [[0.43, 0.62, 0.56, 0.93, 0.25, 1.0]], "explode": [0.3, 0.6, 1], "distance": 0.34},
+        {"id": "gpu", "label": "GPU", "bind": "ws.gpu", "hint": "Graphics card: utilisation, VRAM, temperature, power draw", "boxes": [[0.06, 0.68, 0.30, 0.56, 0.25, 1.0]], "explode": [-0.2, 0, 1], "distance": 0.42},
+        {"id": "drives", "label": "DRIVES", "bind": "ws.disks", "hint": "Storage: the fullest filesystems and read/write rate", "boxes": [[0.66, 0.89, 0.62, 0.93, 0.2, 1.0]], "explode": [0.5, 0.4, 0.8], "distance": 0.34},
+        {"id": "exhaust", "label": "EXHAUST", "bind": "ws.fans", "hint": "Case and CPU fans from the motherboard sensors", "boxes": [[0.0, 0.14, 0.62, 0.97, 0.0, 1.0]], "explode": [-1, 0.3, 0], "distance": 0.3},
+        {"id": "intake", "label": "INTAKE", "bind": "ws.net", "hint": "Front panel: network traffic in and out of this machine", "boxes": [[0.89, 1.0, 0.04, 0.97, 0.0, 1.0]], "explode": [1, 0, 0.2], "distance": 0.34},
+        {"id": "psu", "label": "PSU", "bind": "ws.power", "hint": "Power: GPU board power and system uptime", "boxes": [[0.04, 0.89, 0.06, 0.29, 0.15, 1.0]], "explode": [0, -0.6, 1], "distance": 0.3},
+        {"id": "chassis", "label": "CHASSIS", "bind": "ws.host", "hint": "The case: host, kernel and load average", "rest": true, "explode": [0, 0, -1], "distance": 0.12}
+      ]
+    },
+    "wick": {
+      "title": "THE WICK", "subtitle": "relay station", "source": "src/wick-station.glb", "faces": 44000, "max_edges": 22000,
+      "parts": [
+        {"id": "mast", "label": "MAST", "bind": "wick.beam", "hint": "The relay mast: the beam burns while every service answers", "boxes": [[0.42, 0.6, 0.5, 1.0, 0.0, 1.0]], "explode": [0, 1, 0], "distance": 0.32},
+        {"id": "dish", "label": "DISH", "bind": "wick.wan", "hint": "The dish: WAN traffic down and up", "boxes": [[0.62, 0.9, 0.46, 0.8, 0.0, 1.0]], "explode": [1, 0.5, 0.2], "distance": 0.3},
+        {"id": "whips", "label": "ANTENNAE", "bind": "wick.lan", "hint": "Whip antennae: LAN clients and ISP latency", "boxes": [[0.0, 1.0, 0.5, 0.8, 0.0, 1.0]], "explode": [-0.6, 1, 0], "distance": 0.26},
+        {"id": "solar_l", "label": "SOLAR", "bind": "wick.solar", "hint": "Solar wings: the house array's output now and today", "boxes": [[0.0, 0.32, 0.28, 0.45, 0.0, 1.0]], "explode": [-1, 0, 0], "distance": 0.3},
+        {"id": "solar_r", "label": "SOLAR ARRAY", "bind": "wick.solar2", "hint": "Solar wings: lifetime energy from the house array", "boxes": [[0.78, 1.0, 0.28, 0.45, 0.0, 1.0]], "explode": [1, 0, 0], "distance": 0.3},
+        {"id": "rackroom", "label": "RACK ROOM", "bind": "wick.racks", "hint": "The lit rack room: cluster nodes ready, pods running, alerts", "boxes": [[0.28, 0.8, 0.33, 0.46, 0.0, 1.0]], "explode": [0, 0.15, 1], "distance": 0.22},
+        {"id": "dock", "label": "DOCK", "bind": "wick.vault", "hint": "Docking ring and hold: the NAS pool", "boxes": [[0.2, 0.8, 0.0, 0.11, 0.0, 1.0]], "explode": [0, -1, 0], "distance": 0.24},
+        {"id": "hull", "label": "HULL", "bind": "wick.hull", "hint": "Hull: the hypervisor host carrying the cluster", "rest": true, "explode": [0, -0.3, 1], "distance": 0.1}
+      ]
+    },
+    "emblem": {
+      "title": "THE BURN-IN", "subtitle": "emblem", "builder": "emblem", "source_svg": ["themes/wick/emblem/emblem-ring.svg", "themes/wick/emblem/emblem-flame.svg"], "max_edges": 14000,
+      "parts": [
+        {"id": "ring", "label": "RING", "bind": "emb.ring", "hint": "The ring turns against the clock, once every 24 seconds", "explode": [0, 0, -1], "distance": 0.18},
+        {"id": "ticks", "label": "TUNING GAP", "bind": "emb.gap", "hint": "The eleven-tick dial: services answering on the network", "explode": [0, 1, 0], "distance": 0.2},
+        {"id": "flame", "label": "FLAME", "bind": "emb.flame", "hint": "The flame: the relay beam is lit while every channel answers", "explode": [0, 0, 1], "distance": 0.28},
+        {"id": "mast", "label": "FIRST RELAY", "bind": "emb.mast", "hint": "The first relay, cut through the flame: cluster nodes ready", "rest": true, "explode": [0, 0, 1], "distance": 0.5}
+      ]
+    }
+  }
+}

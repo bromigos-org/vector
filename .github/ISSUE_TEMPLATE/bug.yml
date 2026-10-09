@@ -1,0 +1,47 @@
+name: Something is broken
+description: Report a bug in VECTOR or the holograms.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting it. Leave out anything private, such as your hostnames, addresses or tokens.
+        A security problem, such as a way around one of his limits, goes in a private report instead (SECURITY.md).
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you asked or did, and what went wrong.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: How to make it happen again
+      description: The steps, one per line. If a prompt does it, include the prompt. Say if it happens every time.
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: The output of `pacman -Q bromigos-vector`.
+    validations:
+      required: true
+  - type: input
+    id: model
+    attributes:
+      label: Model
+      description: Which model he was using, and where it runs (this machine, your homelab, a cloud service).
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs or a picture
+      description: An error message, a log or a screenshot, if you have one.
+      render: text

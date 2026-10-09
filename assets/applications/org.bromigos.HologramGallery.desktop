@@ -1,0 +1,14 @@
+[Desktop Entry]
+Type=Application
+Version=1.5
+Name=Hologram Gallery
+GenericName=3D Model Viewer
+Comment=Turn through the hologram models: VECTOR's, the worlds' and your lab's (SUPER+O; Esc closes)
+Icon=bromigos-gallery
+TryExec=bromigos-holo
+Exec=bromigos-holo gallery-show
+Terminal=false
+Categories=Graphics;3DGraphics;Viewer;
+Keywords=hologram;holograms;gallery;3d;models;viewer;holo;
+StartupNotify=false
+X-Bromigos-Menu=vector/gallery

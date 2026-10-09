@@ -1,0 +1,85 @@
+# Maintainer: bromigOS <packages@bromigos.org>
+#
+# VECTOR, bromigOS's desktop caretaker, and the hologram system he lives in
+# (bromigos-holo). The tree goes to /usr/lib/bromigos/vector (its defaults beside it:
+# voice.json, eyes.json, nolgia.json); the user's own settings are in
+# ~/.config/bromigos/vector/, their plugins in ~/.config/bromigos/plugins/vector/
+# (docs/plugins.md). His Python environments are the user's: `bromigos-holo setup brain`
+# (Pydantic AI and the tools' libraries) and `setup voice` / `voice-cpu`.
+
+pkgname=bromigos-vector
+pkgver=0.1.0.r33.gc5f67cb
+pkgrel=1
+pkgdesc='bromigOS VECTOR: the desktop caretaker, his hologram, voice, tools and memory'
+arch=('any')
+url='https://github.com/bromigos-org/vector'
+license=('MIT OR Apache-2.0')
+depends=('bromigos-core' 'python' 'python-gobject' 'gtk3' 'gtk-layer-shell' 'python-cairo'
+         'python-opengl' 'python-numpy' 'python-pillow' 'python-psutil' 'python-yaml'
+         'bubblewrap' 'hyprland')
+optdepends=('uv: bromigos-holo setup (fetches Python 3.12 for the voice)'
+            'pipewire-audio: his voice and push-to-talk (pw-play, pw-record)'
+            'bromigos-live: the holograms, the codec and his place in the live layer'
+            'ollama: a local brain (the default endpoint without a configured one)'
+            'grim: his eyes (read-only screenshots)'
+            'github-cli: CI and repo tools'
+            'kubectl: the operator'"'"'s homelab tools'
+            'git: the build loop and change tracking')
+makedepends=('git' 'python')
+checkdepends=('desktop-file-utils')
+options=('!debug')
+
+_root="${startdir%/packaging/*}"
+
+# <VERSION>.r<commits>.g<last commit>
+# The commits that were made before the history restarted at v0.1.2 (they're in
+# bromigos-org/vector-archive): the count goes on from them, so no version sorts below one
+# published before the restart (packaging/README.md, Versions).
+_archived=58
+
+pkgver() {
+  cd "$_root"
+  printf '%s.r%s.g%s' "$(tr -d ' \n' < VERSION)" "$((_archived + $(git rev-list --count HEAD)))" "$(git log -1 --format=%h)"
+}
+
+check() {
+  cd "$_root"
+  python -m compileall -q holo evals tools lib >/dev/null
+  python -c 'import json, sys; [json.load(open(f)) for f in sys.argv[1:]]' voice.json eyes.json nolgia.json assets/holo/manifest.json
+  # every model in the manifest has its baked file
+  python -c 'import json, os; m = json.load(open("assets/holo/manifest.json"))["models"]; missing = [n for n in m if not os.path.exists(f"assets/holo/{n}.holo.npz")]; assert not missing, missing'
+  # the app launcher's entries: desktop-file-validate, their icons, and each Exec sending
+  # the verb it should to a stand-in daemon (no display, a throwaway HOME)
+  python tools/test-launcher-entries.py
+  # the launcher's own verbs: stop [now], restart [now], its usage against the verbs it handles
+  python tools/test-launcher-verbs.py
+  # the dotfiles' privacy guard: every sops value encrypted, however it nests
+  python tools/test-privacy-guard.py
+}
+
+package() {
+  local lib="$pkgdir/usr/lib/bromigos/vector" f
+  while IFS= read -r -d '' f; do
+    install -Dm0644 "$_root/$f" "$lib/$f"
+  done < <(cd "$_root" && find holo evals tools lib skills requirements voices -type f \
+    -not -path '*/__pycache__/*' -not -name '*.pyc' -print0)
+  install -Dm0644 -t "$lib/" "$_root/voice.json" "$_root/eyes.json" "$_root/nolgia.json" "$_root/VERSION"
+  install -Dm0755 "$_root/bin/bromigos-holo" "$lib/bin/bromigos-holo"
+  # his hologram collection (assets/holo/README.md): what the gallery reads; the sources stay in the repo
+  install -Dm0644 -t "$pkgdir/usr/share/bromigos/vector/holo/" "$_root"/assets/holo/manifest.json \
+    "$_root"/assets/holo/*.holo.npz "$_root"/assets/holo/README.md
+  find "$lib/tools" -name '*.py' -exec chmod 0755 {} +
+  # the app launcher's entries (VECTOR, the hologram gallery) and their icons, drawn by
+  # bromigOS's theme/tools/build-app-icons.py --vector assets/icons (bromigOS's own set's style)
+  install -Dm0644 -t "$pkgdir/usr/share/applications/" "$_root"/assets/applications/*.desktop
+  local size
+  for size in 16x16 24x24 32x32 scalable; do
+    install -Dm0644 -t "$pkgdir/usr/share/icons/hicolor/$size/apps/" "$_root"/assets/icons/$size/apps/*.svg
+  done
+  install -d "$pkgdir/usr/bin"
+  ln -s /usr/lib/bromigos/vector/bin/bromigos-holo "$pkgdir/usr/bin/bromigos-holo"
+  install -Dm0644 -t "$pkgdir/usr/share/doc/$pkgname/" "$_root/README.md" "$_root"/docs/*.md
+  install -Dm0644 -t "$pkgdir/usr/share/licenses/$pkgname/" "$_root/LICENSE-MIT" "$_root/LICENSE-APACHE"
+  # bytecode now: /usr/lib is read-only to the user, so Python could never cache it
+  python -m compileall -q -o 0 -o 1 -s "$pkgdir" -p / "$lib/holo" "$lib/evals" "$lib/tools" "$lib/lib" >/dev/null
+}

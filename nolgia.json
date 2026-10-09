@@ -1,0 +1,4 @@
+{
+  "_comment": "VECTOR's nolgia credit budget (holo/vector/nolgia.py). Over the daily cap he asks the host first; an approval counts only when the host answered after he asked.",
+  "daily_credits": 20
+}

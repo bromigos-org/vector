@@ -1,0 +1,15 @@
+# VECTOR's brain: Pydantic AI and the tools' libraries. `bromigos-holo setup brain`
+# installs these into ~/.local/share/bromigos/venv-brain (system site packages on, so
+# GTK and OpenGL come from pacman).
+pydantic-ai-slim[openai,mcp]>=2.54
+pydantic-ai-harness>=0.54
+fastmcp-slim>=4.0
+mcp>=2.3
+httpx2>=2.13
+openai>=3.24
+playwright>=1.63
+trafilatura>=2.3
+tiktoken>=0.14
+bashlex>=0.18
+onnxruntime>=1.30
+uvicorn>=0.54

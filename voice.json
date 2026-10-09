@@ -1,0 +1,82 @@
+{
+  "_comment": "VECTOR's voice: the package's defaults (bromigos-vector). Your own goes in ~/.config/bromigos/vector/voice.json and replaces this file whole. engine qwen speaks from a reference recording (the designed caretaker voice, voices/vector-ref-A.wav, when a role has none; Qwen3-TTS in ~/.local/share/bromigos/venv-tts, `bromigos-holo setup voice`); kokoro is the CPU fallback. lanes: the brain's models (empty: llm.py's default for your endpoint).",
+  "engine": "lab",
+  "fallback": [
+    "qwen",
+    "kokoro"
+  ],
+  "qwen": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "temperature": 0.7,
+    "chunk_size": 4,
+    "wait_for_load_s": 0
+  },
+  "designed_fallback": {
+    "ref": "voices/vector-ref-A.wav",
+    "text": "Hello, and welcome. I am the caretaker, and everything here is running exactly as it should. Protocol is wise, and I am simply delighted to see you."
+  },
+  "mood_shimmer": {
+    "excited": 0.0,
+    "concerned": 0.05,
+    "alarmed": 0.15
+  },
+  "cue": {
+    "enabled": true,
+    "seconds": 0.24
+  },
+  "voices": {
+    "main": {
+      "name": "caretaker",
+      "ref": "",
+      "shimmer": 0.25,
+      "colour": "#39ff14",
+      "marker": null,
+      "use": "everything (the default)",
+      "kokoro": {
+        "blend": {
+          "bm_george": 0.7,
+          "bm_fable": 0.3
+        },
+        "speed": 1.02,
+        "lang": "en-gb"
+      }
+    }
+  },
+  "stt": {
+    "model": "small",
+    "device": "auto",
+    "compute_type": "default",
+    "prompt": "VECTOR, the Wick, the Drift.",
+    "provider": "lab"
+  },
+  "preload_tts": true,
+  "echo_cancel": true,
+  "drain_ms": 350,
+  "max_record_seconds": 30,
+  "unload_after_seconds": 1800,
+  "exit_after_seconds": 1800,
+  "brain": "pai",
+  "speed": 1.1,
+  "conversation": {
+    "end_of_turn_ms": 700,
+    "vad_threshold": 0.5,
+    "min_speech_ms": 250,
+    "auto_off_s": 120,
+    "max_turn_s": 30
+  },
+  "pacing": {
+    "max_pause_s": 0.08,
+    "sentence_tail_s": 0.11
+  },
+  "release_tail_ms": 250,
+  "lanes": {},
+  "lab": {
+    "_comment": "The homelab's voice service (homelab chart `voice`: the same Qwen3-TTS and Whisper on its GPU). url: empty = bromigos-homelab's `voice` capability (homelab.toml), else the private overlay's tts endpoint; no lab = the engines in `fallback`, in order, and local whisper.",
+    "url": "",
+    "first_audio_timeout_s": 2.5,
+    "timeout_s": 3,
+    "stream_timeout_s": 10,
+    "chunk_size": 4,
+    "temperature": 0.7
+  }
+}

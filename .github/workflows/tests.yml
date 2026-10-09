@@ -1,0 +1,47 @@
+# The offline tests on every pull request and every push to main: the merge tool's limits
+# and his clones (test-devflow.py, in his bubblewrap sandbox), the privacy guard, a user's
+# own systems and their real money (test-plugin-systems.py) and the launcher. VECTOR's merge tool (holo/vector/devflow.py) merges his own PRs only when these
+# checks are green. Nothing here uses a secret.
+name: tests
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  offline:
+    name: Offline tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+
+      # bubblewrap for his sandbox; Ubuntu's AppArmor blocks the user namespaces it needs
+      # unless this is switched off on the runner
+      - name: Sandbox and Python packages
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq bubblewrap desktop-file-utils >/dev/null
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0 || true
+          python3 -m pip install --quiet --user 'bashlex==0.18' psutil pyyaml numpy
+
+      - name: Compile
+        run: python3 -m compileall -q holo tools lib evals
+
+      - name: His clones and the merge tool's limits
+        run: python3 tools/test-devflow.py
+
+      - name: The privacy guard
+        run: python3 tools/test-privacy-guard.py
+
+      - name: A user's own systems (plugins) and their real money
+        run: python3 tools/test-plugin-systems.py
+
+      - name: The launcher
+        run: |
+          python3 tools/test-launcher-verbs.py
+          python3 tools/test-launcher-entries.py

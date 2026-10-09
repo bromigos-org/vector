@@ -1,0 +1,27 @@
+[Desktop Entry]
+Type=Application
+Version=1.5
+Name=VECTOR
+GenericName=Desktop Assistant
+Comment=Show VECTOR, the desktop's caretaker, on the line: type to him (SUPER+E; Esc hands the keyboard back)
+Icon=bromigos-vector
+TryExec=bromigos-holo
+Exec=bromigos-holo vector-show
+Terminal=false
+Categories=Utility;
+Keywords=vector;assistant;ai;chat;ask;caretaker;voice;help;
+StartupNotify=false
+Actions=conversation;chat;history;
+X-Bromigos-Menu=vector/vector
+
+[Desktop Action conversation]
+Name=Conversation Mode
+Exec=bromigos-holo conversation
+
+[Desktop Action chat]
+Name=Chat Box
+Exec=bromigos-holo chat
+
+[Desktop Action history]
+Name=Past Conversations
+Exec=bromigos-holo history
