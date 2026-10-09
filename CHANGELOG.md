@@ -9,6 +9,15 @@ This repository's history starts at 0.1.2. The commits before it, which the link
 
 <!-- releases: tools/release/release.py adds each release below this line, newest first -->
 
+## [0.1.3] - 2026-10-09
+<!-- release: 0.1.3-rc1 -->
+
+Release candidate v0.1.3-rc1.
+
+Since v0.1.2. Released with bromigOS 0.1.3 (its notes: bromigOS's manual, What's new).
+
+No changes.
+
 ## [0.1.2] - 2026-10-09
 <!-- release: 0.1.2-rc2 -->
 
