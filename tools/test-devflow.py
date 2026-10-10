@@ -305,7 +305,7 @@ else:
     devflow._configure("dotfiles")
     ok(git(dot, "config", "core.hooksPath") == ".githooks", "the dotfiles clone runs the dotfiles' hooks")
     git(dot, "checkout", "-q", "-b", "vector/lan")
-    open(os.path.join(dot, "docs/lan.md"), "w").write("ssh to 192.168.1.20 for the lab\n")
+    open(os.path.join(dot, "docs/lan.md"), "w").write("ssh to 192.168.1.20 for the lab\n")  # privacy: allow (the guard must refuse a LAN address)
     r = devflow.work_commit("dotfiles", ["docs/lan.md"], "docs: lan")
     ok(bool(r.get("refused")) and "private" in r["refused"], "work_commit refuses a private detail in the public dotfiles")
 
