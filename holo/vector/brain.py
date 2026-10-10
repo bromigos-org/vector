@@ -1,7 +1,7 @@
 """VECTOR's brain: qwen3.8-flash-next on the homelab LiteLLM, streaming, with tool calls.
 
 The key comes from ~/.local/share/bromigos/litellm-key (mode 600, from Vault
-via `bromigos-secrets sync`; the path is in the private overlay); it is never logged. Thinking is turned off
+via `bromigos secrets sync`; the path is in the private overlay); it is never logged. Thinking is turned off
 (about 0.5 s to first token instead of about 6 s). The conversation is kept in memory
 for the session and appended to ~/.local/state/bromigos/vector-chat.log (local only).
 
