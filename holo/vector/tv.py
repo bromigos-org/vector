@@ -16,6 +16,10 @@ def available():
     return importlib.util.find_spec('bromigos_tvchannels') is not None
 
 
+def available_player():
+    return all(importlib.util.find_spec(n) is not None for n in ("bromigos_tvplay", "bromigos_tvremote"))
+
+
 def _channels():
     import bromigos_tvchannels
     return bromigos_tvchannels
@@ -48,6 +52,22 @@ def tv_channel_create(name: str, shows: list[str] | None = None, items: list[str
 def tv_tune(channel: str, screen: str = 'big'):
     """Tune a channel by its name or config number; the library finds its screen number."""
     return _channels().Store().tune(channel,screen)
+
+
+def tv_play(screen: str = 'big', title: str | None = None, id: str | None = None,
+            url: str | None = None, source: str | None = None, resume: bool = False):
+    """Play a downloaded episode/movie or YouTube video now, using the shared resolver."""
+    import bromigos_tvplay
+    return bromigos_tvplay.play(screen, title, id, url, source, resume)
+
+
+def tv_remote(action: str, screen: str = 'big'):
+    """One remote action on a named screen; does not capture the operator's keyboard."""
+    import bromigos_tvremote
+    from bromigos_tvplay import screen_name
+    if action not in bromigos_tvremote.ACTIONS or action in ('digits','leave','cancel') or action.startswith('digit-'):
+        raise ValueError('Use volume-up/down, channel-up/down, mute, skip, previous, open, sound or guide')
+    return bromigos_tvremote.send('remote ' + action + ' --screen ' + screen_name(screen))
 
 
 def tv_channel_delete(channel: str, confirm: bool = False):

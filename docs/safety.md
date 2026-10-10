@@ -583,3 +583,8 @@ Removing one pick never deletes its media files. A whole-channel delete needs yo
 latest words to ask for deletion and name that channel; `confirm=true` alone is refused.
 The terminal cannot bypass that check with `bromigos-live tv channel remove`.
 The phone receives read and individual pick tools only.
+
+Den TV on-demand playback and individual remote actions are audited desktop tools.
+They cannot read credentials or expose stream headers; the shared bromigOS library
+resolves media privately. Remote actions send a single command to the named screen and
+do not enter keyboard remote mode. Neither tool is exposed to the phone endpoint.

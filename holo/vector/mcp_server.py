@@ -31,7 +31,7 @@ READ_ONLY = ["system_stats", "lab_status", "k8s_get", "k8s_logs", "k8s_events", 
 # Claude Code off the desktop: its sessions and a search, and claude_read as the latest view
 # only (CLAUDE_LATEST: a fixed signature, latest=True, no tool output). Never here: its memory
 # files and logs (claude_memory, claude_logs), reading aloud and follow mode.
-DESKTOP_ONLY = {"tv_channel_create", "tv_tune", "tv_channel_delete","claude_memory", "claude_logs", "claude_say_latest", "claude_follow"}
+DESKTOP_ONLY = {"tv_play", "tv_remote", "tv_channel_create", "tv_tune", "tv_channel_delete","claude_memory", "claude_logs", "claude_say_latest", "claude_follow"}
 
 
 # Desktop-local actions for VECTOR's brain on Hermes (served on the LAN by mcp_lan.py).

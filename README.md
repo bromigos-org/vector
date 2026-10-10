@@ -181,3 +181,7 @@ the bar icon, his homelab tools and where AI runs (`bromigos-org/bromigOS`).
 [CONTRIBUTING.md](CONTRIBUTING.md) covers building, testing and sending a change, and how
 his safety rules affect it. Everyone here follows the [code of conduct](CODE_OF_CONDUCT.md).
 To report a security problem, see [SECURITY.md](SECURITY.md).
+
+On request, VECTOR can play an episode, movie or YouTube video on a den TV with
+`tv_play`, or use its volume, channel and playback buttons with `tv_remote`.
+Both are audited desktop tools. See [the tools guide](docs/tools.md#playing-on-the-den-tvs).

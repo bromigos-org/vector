@@ -88,8 +88,23 @@ class Tools(unittest.TestCase):
                 and isinstance(n.targets[0],ast.Name) and n.targets[0].id in ('READ_ONLY','ACT','DESKTOP_ONLY')}
         self.assertIn('tv_channels',values['READ_ONLY'])
         for name in ('tv_channel_add_item','tv_channel_remove_item'): self.assertIn(name,values['ACT'])
-        for name in ('tv_channel_create','tv_tune','tv_channel_delete'):
+        for name in ('tv_channel_create','tv_tune','tv_channel_delete','tv_play','tv_remote'):
             self.assertIn(name,values['DESKTOP_ONLY']);self.assertNotIn(name,values['ACT'])
+
+    def test_play_and_remote_are_audited_and_not_on_phone(self):
+        import bromigos_tvplay as P
+        import bromigos_tvremote as R
+        with (mock.patch.object(P,'resolve',return_value=dict(id='episode5',title='Episode 5',server='library',kind='episode')),
+              mock.patch.object(P,'control',return_value=json.dumps(dict(ok=True,message='Playing'))) as ctl):
+            self.call('tv_play',screen='big',title='Space Radio S01E05',resume=True)
+            payload=json.loads(ctl.call_args.args[0].partition('play-json ')[2])
+            self.assertEqual(payload['item']['id'],'episode5');self.assertTrue(payload['resume'])
+        with mock.patch.object(R,'control',return_value='big: volume 65') as ctl:
+            self.call('tv_remote',action='volume-up',screen='scope')
+            ctl.assert_called_with('tv remote volume-up --screen wave')
+        self.assertNotIn('tv_play',tools.WHILE_OFF);self.assertNotIn('tv_remote',tools.WHILE_OFF)
+        with open(tools.AUDIT) as f: records=[json.loads(line) for line in f]
+        self.assertTrue(all(any(r['tool']==name and r['ok'] for r in records) for name in ('tv_play','tv_remote')))
 
     def test_terminal_does_not_bypass_whole_channel_delete(self):
         self.assertTrue(guard._lab_switch(['bromigos-live','tv','channel','remove','Night Block','--yes']))

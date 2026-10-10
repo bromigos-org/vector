@@ -262,3 +262,17 @@ The homelab actions, herdr, GitHub and nolgia tools, a few tools for one user's 
 services, and the build loop all live in the core for now. Each is hidden unless its
 backend is set up. Moving them into plugins needs a trusted plugin level first, because
 plugins may only add read and desktop tools.
+
+## Playing on the den TVs
+
+`tv_play` plays a specific episode, movie or YouTube video on `big`, `scope` or `small`.
+Pass a title such as `Cowboy Bebop S01E05`, an item `id` with its source name, or a YouTube
+`url`. `resume=true` uses the saved server position; otherwise it starts at the beginning.
+It calls bromigOS's shared `bromigos_tvplay` resolver and the live layer's on-demand path.
+The screen returns to its live channel when playback ends or its channel changes.
+
+`tv_remote` sends one action to a screen: `volume-up`, `volume-down`, `channel-up`,
+`channel-down`, `mute`, `skip`, `previous`, `open`, `sound` or `guide`. It uses the same
+control path as the equipment knobs, MEDIA widget and number-pad keys. It does not take
+over the operator's keyboard. Both tools are audited, desktop-only and unavailable to
+the phone; phone access remains channel reading and adding/removing individual picks.

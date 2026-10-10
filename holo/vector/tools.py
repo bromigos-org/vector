@@ -265,7 +265,7 @@ from .nolgia import nolgia_catalog, nolgia_credits, nolgia_generate, nolgia_read
 from .create import create, make_hologram  # noqa: E402
 from .lab import lab_console, lab_job_cancel, lab_job_submit, lab_jobs  # noqa: E402
 from .tv import (tv_channels, tv_channel_add_item, tv_channel_remove_item, tv_channel_create,
-                 tv_tune, tv_channel_delete)
+                 tv_tune, tv_channel_delete, tv_play, tv_remote)
 from .media import (media_delete, media_get, media_language, media_recent, media_search, media_status,  # noqa: E402
                     media_upcoming)
 from .browser import (browser_back, browser_click, browser_close, browser_find, browser_look,  # noqa: E402
@@ -742,6 +742,13 @@ SPECS = {
                         "order": S, "bumpers": B}, ["name"])),
     "tv_tune": ("Tune a named den TV channel on screen big, wave (scope) or emblem (small).",
                     _p({"channel": S, "screen": S}, ["channel"])),
+    "tv_play": ("On request, play a specific episode/movie or YouTube URL on a den TV screen. For an episode, "
+                "use a title such as Cowboy Bebop S01E05 or episode 5. resume=true uses its saved position. "
+                "It returns to its channel when finished; this never downloads or requests missing media.",
+                _p({"screen": S, "title": S, "id": S, "url": S, "source": S, "resume": B}, [])),
+    "tv_remote": ("One Den TV remote action on a screen, without entering keyboard remote mode. "
+                  "volume-up/down, channel-up/down, mute, skip, previous, open, sound or guide.",
+                  _p({"action": S, "screen": S}, ["action"])),
     "tv_channel_delete": ("Remove a whole den TV channel. First returns the plan. confirm=true works only when "
                     "the operator's latest words explicitly request deletion and name that channel. Files stay.",
                     _p({"channel": S, "confirm": B}, ["channel"])),
@@ -976,6 +983,7 @@ def _needs():
                                                                "media_delete")},
         **{n: tv_mod.available() for n in ('tv_channels','tv_channel_add_item','tv_channel_remove_item',
                                          'tv_channel_create','tv_tune','tv_channel_delete')},
+        **{n: tv_mod.available_player() for n in ('tv_play','tv_remote')},
         # Claude Code's records: there is a ~/.claude/projects to read
         **{n: os.path.isdir(os.path.join(claude_mod.root(), "projects")) for n in (
             "claude_sessions", "claude_read", "claude_search", "claude_memory", "claude_logs", "claude_say_latest",
