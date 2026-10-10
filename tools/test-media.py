@@ -55,6 +55,16 @@ else:
 os.chmod(STUB, os.stat(STUB).st_mode | stat.S_IEXEC)
 os.environ["BROMIGOS_LAB_BIN"] = STUB
 
+try:                                   # CI: no bromigos-core, so no private overlay module; an empty one
+    import bromigos_private  # noqa: F401
+except ImportError:
+    with open(os.path.join(TMP, "bromigos_private.py"), "w") as f:
+        f.write("def data(): return {}\ndef present(): return False\ndef get(key, default=None): return default\n"
+                "def url(name, path='', default=''): return default\ndef vault(name, default=''): return default\n"
+                "def vault_root(default=''): return default\ndef lan_domain(default=''): return default\n"
+                "def path(name, default=''): return default\nPATH = ''\n")
+    sys.path.insert(0, TMP)
+
 from holo.vector import guard, media  # noqa: E402
 
 BAD = [0]
