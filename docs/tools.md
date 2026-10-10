@@ -135,6 +135,39 @@ access is limited by that account's permissions:
 
 `[tools] homelab = "off"` in `vector.toml` hides all of these.
 
+## Your media
+
+With bromigos-homelab and a Seerr, Sonarr, Radarr or Lidarr source in `homelab.toml`, he
+asks your lab's media stack for things (bromigOS's `bromigos lab media`; its docs/lab.md,
+"Media requests").
+
+| Tool | What it does |
+|---|---|
+| `media_search` | Finds a film, show, anime or music: year, release dates, the profile it would get, the size, whether it's in Jellyfin or Plex already |
+| `media_get` | Plans a request, then makes it on your go-ahead: TV and films through Seerr, music through Lidarr (then Soulseek), a YouTube link through Pinchflat |
+| `media_status` | Says what's downloading (progress, time left), what's stuck and why, the audio and subtitle languages, and one show's seasons and monitoring |
+| `media_upcoming` | Lists what you track and when it comes out |
+| `media_recent` | Lists what arrived in the library lately |
+| `media_language` | Shows or sets your audio and subtitle languages |
+
+What you say, and what he does:
+
+- "Download Cowboy Bebop." He finds one match, so he requests it. He tells you the profile
+  ("Remux-1080p - Anime (English audio)"), the audio ("dual audio: English + Japanese"),
+  and what's monitored ("Monitoring season 1 and specials, and new episodes").
+- "Get The Office." Two shows match (US and UK), so he asks which.
+- "Get season 2 of X", "just the latest season", "keep up with new episodes of X", "stop
+  getting new episodes of X". These set the seasons and whether new episodes are picked up.
+  A show you already have keeps what it has.
+- "Track the new Dune film." He requests it now. Radarr waits for the home release, never a
+  cam copy. "What's coming up?" reads the dates.
+- "I prefer the Japanese audio with subtitles" for anime sets anime's audio to Japanese and
+  the subtitles to English.
+- When something you asked for is in the library, he says so in a line. The return brief
+  lists it too.
+
+[safety.md](safety.md#making-things-and-spending) has the limits.
+
 ## Skills
 
 | Tool | What it does |

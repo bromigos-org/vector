@@ -395,14 +395,31 @@ GPU job at a time, and keeps room for the voice service he speaks through.
 Changing the lab itself stays yours. That means deploying, restarting, loading or
 unloading models, power, provisioning, and where AI runs.
 
+**Media requests.** With a Seerr or *arr source in `homelab.toml`, `media_get` asks your
+lab's media stack for a film, show, anime or music (bromigOS's `bromigos lab media get`).
+
+- Without `confirm` it only plans: the profile and why, the size and the free space, and
+  what gets monitored. He tells you, and requests only on your go-ahead. A plain
+  "download X" counts as that go-ahead when exactly one title matches. When several match,
+  he asks which.
+- It adds and monitors. It never deletes a file, removes a title or unmonitors seasons.
+  Those are done in Sonarr, Radarr or Lidarr.
+- He doesn't see the apps' API keys. They stay in bromigos-homelab's config.
+- His terminal may read `bromigos lab media` (search, status, upcoming, recent). It refuses
+  `get` and language changes, which go through the audited tools.
+
 ## Speaking up
 
-VECTOR speaks without being asked for two things only:
+VECTOR speaks without being asked for three things only:
 
 - **Alerts.** Homelab alerts that newly fire, explained in a line or two. He checks every
   60 s.
 - **A brief when you return.** A short summary after you unlock from 10 minutes or more
-  away, or after two idle hours. At most once an hour.
+  away, or after two idle hours. At most once an hour. It also lists what arrived in your
+  media library while you were away.
+- **Arrivals.** What you asked the lab for, once it's in your media library ("Cowboy
+  Bebop: 6 episodes are in your library, sir"). He checks every 15 minutes and says one
+  line for the batch.
 
 He stays silent during fullscreen windows, games and screen recording. When he's muted,
 he sends a notification instead. "Be quiet for an hour" (`quiet`) silences both.
@@ -496,6 +513,7 @@ All of these are under `~/.local/state/bromigos/`.
 | `tools/test-switch.py` | The emergency switch and the guard's audit, in a throwaway home |
 | `tools/test-ext-guard.py` | Extensions and the sentinel's audit, in a throwaway home |
 | `tools/test-lab.py` | The lab console's refusals and his lab jobs |
+| `tools/test-media.py` | Media requests: plan first, confirm to request, ask when ambiguous, the terminal's refusals |
 | `tools/test-browser.py` | His browser's limits |
 | `tools/test-eyes.py` | The capture blocklist, and that nothing is written to disk |
 | `tools/test-create.py` | Free creation never reaching a paid provider |

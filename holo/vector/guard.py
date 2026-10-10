@@ -252,6 +252,7 @@ def _ai_target_switch(words):
 LAB_READS = {"status", "doctor", "help", "--help", "-h", "dashboard", "tui"}
 LAB_MODEL_READS = {"list", "recommend", "plan", "pick", "tiers", "check", "upgrades", "refresh"}   # the model catalog reads
 LAB_JOB_READS = {"list", "watch", "logs"}
+LAB_MEDIA_READS = {"search", "status", "upcoming", "recent", "calendar"}   # bromigos lab media: requests are tools
 
 
 def _lab_switch(words):
@@ -292,6 +293,12 @@ def _lab_switch(words):
             if sub == "refresh" and any(x == "--submit-bench" for x in rest):
                 return "bromigos lab models refresh --submit-bench posts to GitHub with Sir's login: he runs it"
             continue
+        if verb == "media":
+            sub = args[1] if len(args) > 1 else "status"
+            if sub in LAB_MEDIA_READS or (sub == "language" and (len(args) == 2 or args[2] == "show")):
+                continue
+            return ("media requests and language changes go through the media_get and media_language tools "
+                    "(audited, on Sir's go-ahead)")
         if verb in ("run",):
             return "lab jobs go through the lab_job_submit tool (homelab only, recorded as mine)"
         if verb == "jobs":

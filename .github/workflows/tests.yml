@@ -41,6 +41,9 @@ jobs:
       - name: A user's own systems (plugins) and their real money
         run: python3 tools/test-plugin-systems.py
 
+      - name: Media requests (his tools and his terminal's limits)
+        run: python3 tools/test-media.py
+
       - name: The launcher
         run: |
           python3 tools/test-launcher-verbs.py

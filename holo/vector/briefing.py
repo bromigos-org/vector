@@ -1,4 +1,4 @@
-"""Proactive, bounded: VECTOR speaks up on his own only for these two, and only within limits.
+"""Proactive, bounded: VECTOR speaks up on his own only for these three, and only within limits.
 
 Explained alerts
   Every 60 s he reads the lab's firing alerts (Prometheus /api/v1/alerts: names, labels,
@@ -13,6 +13,12 @@ Return briefs
   first input after 2 hours without any), a short spoken brief: lab health, what the user's
   plugins add (plugins.briefing: their own systems), CI that failed, anything broken. Once
   per return, at most once an hour.
+
+Arrivals
+  What Sir asked the lab for (bromigos lab media, the media_* tools) is in his library: every
+  15 minutes he reads what Sonarr, Radarr and Lidarr imported since the last look and says
+  it in one line ("Cowboy Bebop: 6 episodes are in your library, sir"). Nothing at start
+  (what came before isn't news); a return brief also lists what arrived while he was away.
 
 Never during fullscreen windows, games or screen recording; text only (a notification)
 when muted; nothing at all while "be quiet" is on (quiet(minutes), e.g. "be quiet for an
@@ -31,6 +37,7 @@ ALERT_EVERY = 60
 CI_REPOS = ()          # GitHub repos whose failed CI a brief reports: the plugins' (plugins.briefing repos)
 BRIEF_GAP = 3600
 LOCK_MIN = 600
+ARRIVALS_EVERY = 900
 IDLE_RETURN = 7200
 RECORDERS = ("obs", "wf-recorder", "gpu-screen-recorder", "wl-screenrec", "kooha")
 
@@ -183,6 +190,7 @@ class Briefing:
         self.away_since = None
         threading.Thread(target=self._alerts, daemon=True, name="briefing-alerts").start()
         threading.Thread(target=self._returns, daemon=True, name="briefing-returns").start()
+        threading.Thread(target=self._arrivals, daemon=True, name="briefing-arrivals").start()
 
     # -------------------------------------------------------------- alerts
     def _alerts(self):
@@ -221,6 +229,36 @@ class Briefing:
             self.speak(text, "notify")
         else:
             self.note("Lab: " + text)
+
+    # -------------------------------------------------------------- arrivals
+    def _arrivals(self):
+        from . import tools
+        st = _load()
+        st["media_seen"] = time.time()                  # what came before he started isn't news
+        _save(st)
+        while True:
+            time.sleep(ARRIVALS_EVERY)
+            try:
+                if "media_recent" not in tools.FUNCS:
+                    continue
+                st = _load()
+                since = st.get("media_seen") or time.time() - ARRIVALS_EVERY
+                got = tools.FUNCS["media_recent"](hours=max(1, (time.time() - since) / 3600 + 0.1)).get("imported") or []
+                fresh = [g for g in got if _epoch(g.get("at")) > since]
+                st["media_seen"] = time.time()
+                _save(st)
+                if not fresh:
+                    continue
+                text = arrivals_line(fresh)
+                why = busy_reason()
+                if why == "asked to be quiet":
+                    self.note(text)
+                elif why:
+                    _held(why, text)
+                else:
+                    self.speak(text, "notify")
+            except Exception as e:
+                print("briefing: arrivals:", type(e).__name__, str(e)[:120], flush=True)
 
     # -------------------------------------------------------------- returns
     def _returns(self):
@@ -266,6 +304,30 @@ class Briefing:
         self.speak(text, "main")
 
 
+def _epoch(iso):
+    try:
+        import datetime as dt
+        return dt.datetime.fromisoformat(str(iso).replace("Z", "+00:00")).timestamp()
+    except (TypeError, ValueError):
+        return 0
+
+
+def arrivals_line(groups):
+    """'In your library now, sir: Cowboy Bebop (6 episodes), Cowboy Bebop: The Movie.'"""
+    bits = []
+    for g in groups[:5]:
+        n = len(g.get("items") or [])
+        if g.get("app") == "sonarr":
+            bits.append(f"{g['title']} ({n} episode{'s' if n != 1 else ''})" if n > 1 else
+                        f"{g['title']} {g['items'][0]}")
+        elif g.get("app") == "lidarr":
+            bits.append(f"{g['title']}: {', '.join(str(x) for x in (g.get('items') or [])[:2])}")
+        else:
+            bits.append(str(g["title"]))
+    more = f", and {len(groups) - 5} more" if len(groups) > 5 else ""
+    return "In your library now, sir: " + ", ".join(bits) + more + "."
+
+
 def gather(away_s):
     """The facts for a return brief (each lookup is best-effort)."""
     from . import tools
@@ -281,6 +343,10 @@ def gather(away_s):
     if "argocd_apps" in tools.FUNCS:
         take("argocd_problems", lambda: tools.FUNCS["argocd_apps"](problems_only=True).get("problems"))
     take("alerts_firing", lambda: [{"name": a["name"], "where": a["where"], "severity": a["severity"]} for a in firing().values()])
+    if "media_recent" in tools.FUNCS:                    # what he asked the lab for, in the library now
+        take("media_arrived", lambda: [{"title": g["title"], "what": g.get("items")[:6]} for g in
+                                       tools.FUNCS["media_recent"](hours=max(1, away_s / 3600)).get("imported") or []][:10]
+             or "nothing new")
     own = _own()
     for name, d in own.items():
         take(name, d["fn"])

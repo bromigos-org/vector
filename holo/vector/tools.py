@@ -258,6 +258,7 @@ from .briefing import briefing_now, quiet  # noqa: E402
 from .nolgia import nolgia_catalog, nolgia_credits, nolgia_generate, nolgia_read, nolgia_review  # noqa: E402
 from .create import create, make_hologram  # noqa: E402
 from .lab import lab_console, lab_job_cancel, lab_job_submit, lab_jobs  # noqa: E402
+from .media import media_get, media_language, media_recent, media_search, media_status, media_upcoming  # noqa: E402
 from .browser import (browser_back, browser_click, browser_close, browser_find, browser_look,  # noqa: E402
                       browser_open, browser_read, browser_scroll, browser_tabs, browser_type)
 
@@ -714,6 +715,40 @@ SPECS = {
                        _p({"kind": S, "preset": S, "prompt": S, "text": S, "inputs": {"type": "array", "items": S},
                            "voice": S, "name": S, "aspect": S, "wait": I})),
     "lab_job_cancel": ("Cancel one of your own lab jobs by id (Sir's jobs are his to cancel).", _p({"job": S}, ["job"])),
+    "media_search": ("Find a film, TV show, anime or music on the homelab's media stack (Seerr, Sonarr, Radarr, "
+                     "Lidarr): year, kind, release dates (unreleased: 'in cinemas 2026-12-18, digital TBA'), the "
+                     "quality profile it would get and why, the estimated size, and whether it's already in Jellyfin "
+                     "or Plex or requested. kind: movie, tv, anime or music. Use it before media_get when the title "
+                     "is unclear.", _p({"query": S, "kind": S, "limit": I}, ["query"])),
+    "media_get": ("Request a film, show, anime, artist or album from the homelab at the best quality its profiles allow "
+                  "(TV and films through Seerr, music through Lidarr then Soulseek, a YouTube link to Pinchflat), in "
+                  "Sir's audio languages. what: a name, an id from media_search (tv:tvdb:76885, movie:tmdb:11299, "
+                  "album:<mbid>) or a URL. Without confirm it returns the plan (profile and why, size, free space, "
+                  "what's monitored): tell Sir and ask. confirm=true requests it: only on Sir's go-ahead, and a "
+                  "clear 'download X' from him counts for a single unambiguous match. If it answers ambiguous, ask "
+                  "which. seasons: all (default), latest, future (new episodes only, nothing now), '1,3' or '2-4'; "
+                  "episodes: 'S02E05,S03E01'; specials: season 0 too; new: pick up future episodes and seasons "
+                  "(false: 'stop getting new episodes of X', with seasons 'none'). A show already in the library "
+                  "keeps what it has and adds what's asked ('also get season 4'). quality: best (default), 2160p, "
+                  "1080p, 720p. audio: en, ja or any for this request only. when (films): released (default, the "
+                  "home release), cinemas or announced: unreleased films are tracked until then.",
+                  _p({"what": S, "confirm": B, "kind": S, "quality": S, "audio": S, "seasons": S, "episodes": S,
+                      "specials": B, "new": B, "when": S}, ["what"])),
+    "media_status": ("What the homelab is downloading for Sir: progress, speed and time left (from qBittorrent and "
+                     "SABnzbd), what's stuck or failed and why, Seerr's open requests, the audio and subtitle "
+                     "languages; with query, one title in detail: which seasons are monitored or on disk, whether new "
+                     "episodes are picked up, subtitles from Bazarr, and when nothing's found, what Prowlarr's indexers "
+                     "answer (why=true asks them now).", _p({"query": S, "why": B})),
+    "media_upcoming": ("What Sir tracks and when it comes out: new episodes and films' cinema, digital and disc dates "
+                       "(Sonarr's and Radarr's calendars). days: how far ahead (90).", _p({"days": I})),
+    "media_recent": ("What arrived in the media library lately (imported by Sonarr, Radarr and Lidarr). hours: how far "
+                     "back (24).", _p({"hours": I})),
+    "media_language": ("Sir's media languages, used for every request: action show, set (audio, best first: ['en', "
+                       "'ja'] is English required with Japanese welcome as a second track), anime (anime's own: "
+                       "['ja'] for the original with subtitles, ['same'] to follow audio), subtitles (what Bazarr "
+                       "fetches) or required (['yes'] or ['no']: the first audio language required or only "
+                       "preferred). 'I prefer the Japanese audio with subtitles' for anime is anime ['ja'] and "
+                       "subtitles ['en'].", _p({"action": S, "languages": {"type": "array", "items": S}})),
     "nolgia_generate": ("ONLY when Sir explicitly asks for nolgia by name (for anything else, make it on the homelab with "
                         "create). Generate one image, video or audio clip with nolgia. Say the estimated cost first (nolgia_catalog); "
                         "over the daily cap it returns needs_approval: ask the host, and only after he says yes call again "
@@ -864,10 +899,21 @@ def _needs():
         # the lab console and its job queue: bromigos-homelab's `bromigos lab`, with a homelab connected
         **{n: lab_mod.available() and bool(H and H.configured()) for n in ("lab_console", "lab_jobs", "lab_job_submit",
                                                                           "lab_job_cancel")},
+        # media requests: bromigos-homelab's `bromigos lab media`, with a Seerr or *arr source
+        **{n: lab_mod.available() and _media_lab(H) for n in ("media_search", "media_get", "media_status",
+                                                               "media_upcoming", "media_recent", "media_language")},
         # the build loop changes the desktop through a dotfiles repo (build.py): none, no builder
         **{n: os.path.isdir(os.path.join(build.DOT, ".git")) for n in ("build_start", "build_status", "build_keep",
                                                                        "build_revert", "build_stop")},
     }
+
+
+def _media_lab(H):
+    """A Seerr or *arr source in homelab.toml (the media tools' backend)."""
+    try:
+        return bool(H) and any(s.get("type") in ("seerr", "arr") and s.get("endpoint") for s in H.config.sources())
+    except Exception:
+        return False
 
 
 HIDDEN = {}                                    # tool -> why it isn't offered here
@@ -963,6 +1009,7 @@ WHILE_OFF = frozenset({
     "vault_list", "ci_watch", "argocd_wait", "nolgia_catalog", "nolgia_credits", "nolgia_read", "lab_console",
     "lab_jobs", "build_status", "build_stop", "load_skill", "my_setup", "look", "read_screen_text",
     "snapshot_list", "briefing_now", "time_now", "calendar_month", "quiet", "shell_off", "browser_close",
+    "media_search", "media_status", "media_upcoming", "media_recent",
 })
 
 
