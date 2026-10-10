@@ -54,7 +54,8 @@ def tv_channel_delete(channel: str, confirm: bool = False):
     """Delete a whole channel only on an explicit request naming it. Media files stay."""
     from . import tools
     store = _channels().Store()
-    doc = store.load(); name = doc.channels()[store.index(doc,channel)]['name']
+    doc = store.load(); index = store.index(doc,channel)
+    name = store.display_name(doc.channels()[index],index)
     if not confirm:
         return {'name':name,'say':f'Removing {name} removes the channel only. Ask for an explicit request naming it.'}
     words = tools.LAST_USER_TEXT.get('text') or ''

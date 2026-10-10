@@ -68,6 +68,12 @@ class Tools(unittest.TestCase):
         self.assertIn('Removed',tv.tv_channel_delete('Night Block',confirm=True)['message'])
         self.assertEqual(C.Store().load().channels(),[])
 
+    def test_legacy_library_name_can_be_used_in_an_explicit_delete(self):
+        store=C.Store();store.edit(lambda doc:doc.add({'library':'Albums'}))
+        tools.LAST_USER_TEXT['text']='Delete channel Albums'
+        self.assertEqual(tv.tv_channel_delete('Albums',confirm=True)['name'],'Albums')
+        self.assertEqual(len(store.load().channels()),1)
+
     def test_tune_uses_shared_socket_and_does_not_restart(self):
         with mock.patch.object(C,'control',return_value='tuned') as ctl:
             res=tv.tv_tune('Night Block','scope')
