@@ -43,13 +43,21 @@ on:
         description: "Build nothing: only bring the public mirror (R2) up to date with the channel"
         type: boolean
         default: false
+      prefix:
+        description: "A test: publish under this folder of the bucket (e.g. ci-test), not the real channels"
+        type: string
+        default: ""
+      hosted:
+        description: "Run on GitHub's hosted runner, as once the repositories are public (bromigOS docs/public.md)"
+        type: boolean
+        default: false
 
 # One publisher at a time per channel: each run reads, extends and rewrites the channel's db
 # ... per channel: a tag's stable/rc publish must not be queued behind (or cancelled by: a
 # group holds one pending run) the pushes to main; each channel has its own database and
 # lease in the bucket, so they can run side by side.
 concurrency:
-  group: packages-${{ inputs.channel || (startsWith(github.ref, 'refs/tags/v') && (contains(github.ref, '-rc') && 'rc' || 'stable')) || 'edge' }}
+  group: packages-${{ inputs.prefix && format('{0}-', inputs.prefix) || '' }}${{ inputs.channel || (startsWith(github.ref, 'refs/tags/v') && (contains(github.ref, '-rc') && 'rc' || 'stable')) || 'edge' }}
   cancel-in-progress: false
 
 permissions:
@@ -59,10 +67,12 @@ jobs:
   publish:
     name: Build, sign and publish
     # The repo variable CI_RUNNER_PACKAGES names a self-hosted amd64 runner
-    # that can reach the bucket. The job's container runs in that runner's
-    # Docker daemon, so it needs one sized for builds. Without the variable
-    # the job runs on GitHub's hosted runner. A public repository must not set it.
-    runs-on: ${{ vars.CI_RUNNER_PACKAGES || 'ubuntu-latest' }}
+    # that can reach the private bucket. The job's container runs in that runner's
+    # Docker daemon, so it needs one sized for builds. Without the variable (or with
+    # the hosted input) the job runs on GitHub's hosted runner and publishes to the
+    # public bucket alone (PKGS_PRIMARY=public). A public repository must not set it
+    # (bromigOS tools/release/go-public.sh --ci unsets it).
+    runs-on: ${{ !inputs.hosted && vars.CI_RUNNER_PACKAGES || 'ubuntu-latest' }}
     container: archlinux:base-devel
     timeout-minutes: 60
     steps:
@@ -103,6 +113,9 @@ jobs:
           PKGS_PUBLIC_ACCESS_KEY_ID: ${{ secrets.PKGS_PUBLIC_ACCESS_KEY_ID }}
           PKGS_PUBLIC_SECRET_ACCESS_KEY: ${{ secrets.PKGS_PUBLIC_SECRET_ACCESS_KEY }}
           PKGS_MIRROR_ONLY: ${{ inputs.mirror_only && '1' || '0' }}
+          # the private bucket is the primary only where the job can reach it
+          PKGS_PRIMARY: ${{ !inputs.hosted && vars.CI_RUNNER_PACKAGES && 's3' || 'public' }}
+          PKGS_ROOT: ${{ inputs.prefix }}
           PKGS_KEEP: "3"
           PKGS_REBUILD: ${{ inputs.rebuild && '1' || '0' }}
           PKGS_ONLY: ${{ inputs.only }}
@@ -111,5 +124,5 @@ jobs:
         # publish.sh through its environment, never its command line.
         run: >-
           sudo -u builder
-          --preserve-env=PKGS_S3_ENDPOINT,PKGS_S3_BUCKET,PKGS_S3_ACCESS_KEY_ID,PKGS_S3_SECRET_ACCESS_KEY,PKGS_GPG_PRIVATE_KEY,PKGS_GPG_PASSPHRASE,PKGS_PUBLIC_ENDPOINT,PKGS_PUBLIC_BUCKET,PKGS_PUBLIC_ACCESS_KEY_ID,PKGS_PUBLIC_SECRET_ACCESS_KEY,PKGS_MIRROR_ONLY,PKGS_KEEP,PKGS_REBUILD,PKGS_ONLY,PKGS_CHANNEL
+          --preserve-env=PKGS_S3_ENDPOINT,PKGS_S3_BUCKET,PKGS_S3_ACCESS_KEY_ID,PKGS_S3_SECRET_ACCESS_KEY,PKGS_GPG_PRIVATE_KEY,PKGS_GPG_PASSPHRASE,PKGS_PUBLIC_ENDPOINT,PKGS_PUBLIC_BUCKET,PKGS_PUBLIC_ACCESS_KEY_ID,PKGS_PUBLIC_SECRET_ACCESS_KEY,PKGS_MIRROR_ONLY,PKGS_PRIMARY,PKGS_ROOT,PKGS_KEEP,PKGS_REBUILD,PKGS_ONLY,PKGS_CHANNEL,GITHUB_REPOSITORY,GITHUB_RUN_ID
           packaging/ci/publish.sh

@@ -59,7 +59,14 @@ bootstrap script, the lab model catalog and a build cache. When you change share
 such as signing, channels or the lease, change both copies.
 
 bromigOS's `packaging/README.md` covers the repository, its channels, the secrets CI
-needs (`PKGS_*`) and the runner variable (`CI_RUNNER_PACKAGES`).
+needs (`PKGS_*`) and the runner variable (`CI_RUNNER_PACKAGES`). Without that variable,
+the job runs on GitHub's runner and publishes to the public R2 bucket alone, which the
+homelab then copies ("When the public bucket is the primary" there). To try that without
+touching the real channels:
+
+```bash
+gh workflow run packages -R bromigos-org/vector -f hosted=true -f prefix=ci-test
+```
 
 ## Build locally
 
