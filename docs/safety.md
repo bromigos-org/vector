@@ -402,11 +402,15 @@ lab's media stack for a film, show, anime or music (bromigOS's `bromigos lab med
   what gets monitored. He tells you, and requests only on your go-ahead. A plain
   "download X" counts as that go-ahead when exactly one title matches. When several match,
   he asks which.
-- It adds and monitors. It never deletes a file, removes a title or unmonitors seasons.
-  Those are done in Sonarr, Radarr or Lidarr.
+- It adds and monitors. Deleting is a separate tool, `media_delete`. It first says exactly
+  what goes and the space it frees. It deletes only when your latest words ask for a delete
+  and name that title (`tools.LAST_USER_TEXT`, set on the desktop each turn). So he can't
+  delete on his own initiative, a title you didn't name, or from your phone: the phone
+  surface has no such words, and `media_delete` isn't published over MCP.
 - He doesn't see the apps' API keys. They stay in bromigos-homelab's config.
 - His terminal may read `bromigos lab media` (search, status, upcoming, recent). It refuses
-  `get` and language changes, which go through the audited tools.
+  `get`, `delete`, `monitor`, `profile` and language changes, which go through the audited
+  tools.
 
 ## Speaking up
 
@@ -513,7 +517,7 @@ All of these are under `~/.local/state/bromigos/`.
 | `tools/test-switch.py` | The emergency switch and the guard's audit, in a throwaway home |
 | `tools/test-ext-guard.py` | Extensions and the sentinel's audit, in a throwaway home |
 | `tools/test-lab.py` | The lab console's refusals and his lab jobs |
-| `tools/test-media.py` | Media requests: plan first, confirm to request, ask when ambiguous, the terminal's refusals |
+| `tools/test-media.py` | Media requests: plan first, confirm to request, ask when ambiguous; deletes only on your words naming the title; the terminal's refusals |
 | `tools/test-browser.py` | His browser's limits |
 | `tools/test-eyes.py` | The capture blocklist, and that nothing is written to disk |
 | `tools/test-create.py` | Free creation never reaching a paid provider |

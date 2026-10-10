@@ -252,7 +252,7 @@ def _ai_target_switch(words):
 LAB_READS = {"status", "doctor", "help", "--help", "-h", "dashboard", "tui"}
 LAB_MODEL_READS = {"list", "recommend", "plan", "pick", "tiers", "check", "upgrades", "refresh"}   # the model catalog reads
 LAB_JOB_READS = {"list", "watch", "logs"}
-LAB_MEDIA_READS = {"search", "status", "upcoming", "recent", "calendar"}   # bromigos lab media: requests are tools
+LAB_MEDIA_READS = {"search", "status", "upcoming", "recent", "calendar", "library"}   # bromigos lab media: changes are tools
 
 
 def _lab_switch(words):
@@ -264,6 +264,8 @@ def _lab_switch(words):
             rest = words[i + 2:]
         elif b == "bromigos-lab":
             rest = words[i + 1:]
+        elif (b == "bromigos" and words[i + 1:i + 2] == ["media"]) or b == "bromigos-media":
+            rest = ["media"] + words[i + (2 if b == "bromigos" else 1):]       # `bromigos media` = `bromigos lab media`
         elif b == "bromigos" and words[i + 1:i + 3] == ["setup", "homelab"]:
             return "bromigos setup homelab rewrites homelab.toml, where his homelab tools reach: Sir runs it"
         else:
@@ -297,8 +299,8 @@ def _lab_switch(words):
             sub = args[1] if len(args) > 1 else "status"
             if sub in LAB_MEDIA_READS or (sub == "language" and (len(args) == 2 or args[2] == "show")):
                 continue
-            return ("media requests and language changes go through the media_get and media_language tools "
-                    "(audited, on Sir's go-ahead)")
+            return ("media requests, deletes, monitoring and language changes go through the media_get, "
+                    "media_delete and media_language tools (audited, on Sir's go-ahead; a delete on his own words)")
         if verb in ("run",):
             return "lab jobs go through the lab_job_submit tool (homelab only, recorded as mine)"
         if verb == "jobs":

@@ -13,11 +13,19 @@ lab's profiles allow, in Sir's languages.
   media_upcoming   what's tracked and when it comes out
   media_language   Sir's audio and subtitle languages ("I prefer Japanese audio with subtitles")
 
-Limits, here in code: nothing here deletes, removes or unmonitors a file or a title (no
-command for it exists); a request needs confirm=true, which the tool description ties to Sir's
-go-ahead; the lab's API keys stay in bromigos-homelab's config (the tools see answers only).
+  media_delete     delete a title, a season, episode files or an album, files and all: the plan
+                   first; then only when Sir's own latest words name that title and ask for it
+
+Limits, here in code: a request needs confirm=true, which the tool description ties to Sir's
+go-ahead; a delete needs confirm=true and Sir's latest words (tools.LAST_USER_TEXT, set by the
+desktop's brain each turn) to ask for a delete and name the title, so a delete never happens
+from his own initiative, from another title, or over MCP (the phone surface has no such text,
+and media_delete isn't published there); the lab's API keys stay in bromigos-homelab's config
+(the tools see answers only).
 Every call goes through tools.call (the audit log, the event feed, stop-after-a-block).
 """
+import re
+
 from .lab import _lab, available  # noqa: F401  (available: the tools' gate)
 
 QUALITIES = ("best", "2160p", "1080p", "720p")
@@ -146,3 +154,49 @@ def media_language(action="show", languages=None):
     if doc is None:
         return {"error": (err or "the lab didn't answer")[:300]}
     return dict(doc, say="Tell Sir what's set now, in a sentence (audio, anime, subtitles).")
+
+
+DELETE_WORDS = re.compile(r"\b(delete|remove|get rid of|trash|wipe|erase|nuke)\b", re.I)
+
+
+def _norm(t):
+    return re.sub(r"[^a-z0-9]+", " ", re.sub(r"^(the|a|an)\s+", "", (t or "").lower())).strip()
+
+
+def sir_asked_to_delete(text, title):
+    """Sir's words ask for a delete and name the title (all its words, any case)."""
+    if not text or not DELETE_WORDS.search(text):
+        return False
+    words, said = _norm(title).split(), " " + _norm(text) + " "
+    return bool(words) and all(f" {w} " in said for w in words)
+
+
+def media_delete(what, season=None, episodes=None, album=None, exclude=False, confirm=False):
+    """Plan, or with confirm (on Sir's explicit words) do, a delete (bromigos lab media delete)."""
+    args = ["media", "delete", str(what)[:200], "--json"]
+    if season is not None:
+        args += ["--season", str(int(season))]
+    if episodes:
+        args += ["--episodes", str(episodes)[:200]]
+    if album:
+        args += ["--album", str(album)[:120]]
+    if exclude:
+        args.append("--exclude")
+    code, doc, err = _lab(args, timeout=120)                    # no --yes: the plan, nothing deleted
+    if code == 3 and doc:
+        return {"ambiguous": True, "matches": doc.get("matches"), "say": "Several titles match: ask Sir which."}
+    if not doc or not doc.get("plan"):
+        return {"error": (doc or {}).get("error") or (err or "the lab didn't answer")[:300]}
+    plan = doc["plan"]
+    if not confirm:
+        return {"plan": plan, "say": f"Tell Sir exactly what goes ({plan['what']}) and the space it frees; delete it "
+                                     "only if he then tells you to delete this title, by name."}
+    from . import tools
+    if not sir_asked_to_delete(tools.LAST_USER_TEXT.get("text"), plan["title"]):
+        raise PermissionError(f"deleting {plan['title']} needs Sir to say so himself, naming it (\"delete "
+                              f"{plan['title']}\"); he hasn't in his latest words")
+    code, doc, err = _lab(args + ["--yes"], timeout=180)
+    if code != 0 or not doc:
+        return {"error": (doc or {}).get("error") or (err or "the delete didn't answer")[:300]}
+    return {"deleted": doc.get("what"), "freed": doc.get("size"), "seerr": bool(doc.get("seerr")),
+            "rescanned": doc.get("rescanned"), "say": "Tell Sir it's gone and how much space it freed."}

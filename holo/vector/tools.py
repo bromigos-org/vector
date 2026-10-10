@@ -258,7 +258,8 @@ from .briefing import briefing_now, quiet  # noqa: E402
 from .nolgia import nolgia_catalog, nolgia_credits, nolgia_generate, nolgia_read, nolgia_review  # noqa: E402
 from .create import create, make_hologram  # noqa: E402
 from .lab import lab_console, lab_job_cancel, lab_job_submit, lab_jobs  # noqa: E402
-from .media import media_get, media_language, media_recent, media_search, media_status, media_upcoming  # noqa: E402
+from .media import (media_delete, media_get, media_language, media_recent, media_search, media_status,  # noqa: E402
+                    media_upcoming)
 from .browser import (browser_back, browser_click, browser_close, browser_find, browser_look,  # noqa: E402
                       browser_open, browser_read, browser_scroll, browser_tabs, browser_type)
 
@@ -743,6 +744,12 @@ SPECS = {
                        "(Sonarr's and Radarr's calendars). days: how far ahead (90).", _p({"days": I})),
     "media_recent": ("What arrived in the media library lately (imported by Sonarr, Radarr and Lidarr). hours: how far "
                      "back (24).", _p({"hours": I})),
+    "media_delete": ("Delete a title from Sir's media library, files and all: a show, a film, an artist, one season, "
+                     "some episodes' files or one album. First call without confirm: it returns exactly what goes "
+                     "and the space it frees; tell Sir. Call again with confirm=true only when Sir himself, in his "
+                     "latest words, tells you to delete that title by name; anything else is refused. exclude: and "
+                     "never fetch it again. Never delete on your own initiative, to free space, or for another title.",
+                     _p({"what": S, "season": I, "episodes": S, "album": S, "exclude": B, "confirm": B}, ["what"])),
     "media_language": ("Sir's media languages, used for every request: action show, set (audio, best first: ['en', "
                        "'ja'] is English required with Japanese welcome as a second track), anime (anime's own: "
                        "['ja'] for the original with subtitles, ['same'] to follow audio), subtitles (what Bazarr "
@@ -901,7 +908,8 @@ def _needs():
                                                                           "lab_job_cancel")},
         # media requests: bromigos-homelab's `bromigos lab media`, with a Seerr or *arr source
         **{n: lab_mod.available() and _media_lab(H) for n in ("media_search", "media_get", "media_status",
-                                                               "media_upcoming", "media_recent", "media_language")},
+                                                               "media_upcoming", "media_recent", "media_language",
+                                                               "media_delete")},
         # the build loop changes the desktop through a dotfiles repo (build.py): none, no builder
         **{n: os.path.isdir(os.path.join(build.DOT, ".git")) for n in ("build_start", "build_status", "build_keep",
                                                                        "build_revert", "build_stop")},

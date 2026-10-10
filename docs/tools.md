@@ -149,6 +149,7 @@ asks your lab's media stack for things (bromigOS's `bromigos lab media`; its doc
 | `media_upcoming` | Lists what you track and when it comes out |
 | `media_recent` | Lists what arrived in the library lately |
 | `media_language` | Shows or sets your audio and subtitle languages |
+| `media_delete` | Says exactly what a delete removes, and deletes it only when you tell him to delete that title by name |
 
 What you say, and what he does:
 
@@ -165,6 +166,9 @@ What you say, and what he does:
   the subtitles to English.
 - When something you asked for is in the library, he says so in a line. The return brief
   lists it too.
+- "Delete Paper Moon Cafe." He tells you what goes and how much space it frees, and deletes
+  it, because your words named it. He never deletes on his own, to free space, or from your
+  phone. `bromigos media` in a terminal is the other way to delete.
 
 [safety.md](safety.md#making-things-and-spending) has the limits.
 
