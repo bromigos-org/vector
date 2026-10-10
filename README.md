@@ -174,3 +174,9 @@ vision_model = "qwen2.5vl:7b"
 
 bromigOS's own docs and manual cover how the desktop uses him. That includes the keys,
 the bar icon, his homelab tools and where AI runs (`bromigos-org/bromigOS`).
+
+## Contributing
+
+[CONTRIBUTING.md](CONTRIBUTING.md) covers building, testing and sending a change, and how
+his safety rules affect it. Everyone here follows the [code of conduct](CODE_OF_CONDUCT.md).
+To report a security problem, see [SECURITY.md](SECURITY.md).
