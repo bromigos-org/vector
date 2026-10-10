@@ -44,6 +44,9 @@ jobs:
       - name: Media requests (his tools and his terminal's limits)
         run: python3 tools/test-media.py
 
+      - name: Claude Code's records (read only, redacted, follow mode)
+        run: python3 tools/test-claude.py
+
       - name: The launcher
         run: |
           python3 tools/test-launcher-verbs.py

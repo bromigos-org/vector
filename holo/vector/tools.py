@@ -24,8 +24,11 @@ Hard limits (enforced here, not by the prompt):
   * his own browser (browser.py): a separate Chrome he drives, never the user's; no
     sensitive sites, logins, purchases, downloads or uploads;
   * the user's profile (set_profile): only its own fields (name, full_name, pronouns,
-    address, alias), through `bromigos profile` with a fixed argv; the CLI validates values.
-Every call is appended to ~/.local/state/bromigos/vector-audit.log (tool, args, ok, ms).
+    address, alias), through `bromigos profile` with a fixed argv; the CLI validates values;
+  * Claude Code (claude.py): its transcripts, jobs, memory files and logs, read only and
+    redacted (redact.py) before anything reaches the model; herdr is only asked to list panes.
+Every call is appended to ~/.local/state/bromigos/vector-audit.log (tool, args, ok, ms, and
+for the Claude tools what was read: session ids and byte ranges, never the content).
 """
 import calendar
 import datetime as dt
@@ -91,10 +94,11 @@ EXHIBIT = {
 
 LAST_USER_TEXT = {"text": ""}          # the host's latest words (set by the brain each turn)
 PRIVATE_ARGS = {"remember": ("text",), "forget": ("what",), "gnosis_search": ("query",), "herdr_send": ("text",),
-                "browser_type": ("text",), "set_profile": ("value",)}
+                "browser_type": ("text",), "set_profile": ("value",), "claude_search": ("query",),
+                "claude_say_latest": ("about",), "claude_memory": ("query",)}
 
 
-def _audit(name, args, ok, ms, size=0, err=None):
+def _audit(name, args, ok, ms, size=0, err=None, read=None):
     os.makedirs(STATE, exist_ok=True)
     if name in PRIVATE_ARGS:      # memory text is hashed and truncated, never logged whole
         import hashlib
@@ -104,6 +108,8 @@ def _audit(name, args, ok, ms, size=0, err=None):
                 t = args[k]
                 args[k] = {"sha1": hashlib.sha1(t.encode()).hexdigest()[:12], "head": t[:40], "chars": len(t)}
     rec = {"t": time.strftime("%Y-%m-%dT%H:%M:%S%z"), "tool": name, "args": args, "ok": ok, "ms": ms, "bytes": size}
+    if read:                      # what a Claude tool read (session ids, byte ranges), never the content
+        rec["read"] = read
     if err:
         rec["err"] = str(err)[:200]
     with open(AUDIT, "a") as f:
@@ -262,6 +268,8 @@ from .media import (media_delete, media_get, media_language, media_recent, media
                     media_upcoming)
 from .browser import (browser_back, browser_click, browser_close, browser_find, browser_look,  # noqa: E402
                       browser_open, browser_read, browser_scroll, browser_tabs, browser_type)
+from .claude import (claude_follow, claude_logs, claude_memory, claude_read, claude_say_latest,  # noqa: E402
+                     claude_search, claude_sessions)
 
 
 def notes_read(last_lines=60):
@@ -558,9 +566,12 @@ SPECS = {
     "web_search": ("Search the web (the homelab's SearXNG) for current information. Returns title, url and snippet. "
                    "Say where facts came from. category: general (default), it, science or news.", _p({"query": S, "n": I, "category": S}, ["query"])),
     "web_fetch": (f"Fetch a web page's readable text (http/https; no LAN hosts except *.{LAB_DOMAIN}).", _p({"url": S}, ["url"])),
-    "herdr_status": ("The host's herdr workspaces: AI coding agents (e.g. Claude Code sessions) with their status: "
-                     "working, idle, or blocked (waiting on the host).", _p({})),
-    "herdr_read": ("Recent output of a herdr agent (target: its id, or a hint like the repo name).",
+    "herdr_status": ("The host's herdr workspaces: AI coding agents with their status: working, idle, or blocked "
+                     "(waiting on the host). For Claude Code sessions use claude_sessions instead: it knows their "
+                     "topics, panes and jobs.", _p({})),
+    "herdr_read": ("The terminal screen of a herdr pane (target: its id, or a hint like the repo name). Never for what "
+                   "Claude Code said or is doing: read its transcript with claude_read or claude_say_latest. Only "
+                   "for a pane that isn't Claude Code, or when claude_read finds no transcript.",
                    _p({"agent": S, "lines": I}, ["agent"])),
     "herdr_send": ("Send text to a herdr agent, as if typed (no Enter is added unless the text ends with a newline). "
                    "Say what you are sending first.", _p({"agent": S, "text": S}, ["agent", "text"])),
@@ -784,10 +795,12 @@ SPECS = {
     "look": ("Look at the host's screen and answer a question about it (read only: you never click or type into "
              "apps). Only when the host asks ('look at this', 'what's on my screen', 'check this error') or to check "
              "your own build; never on your own. target: monitor (default), window (the focused one: 'this'), screen "
-             "(every monitor) or a region 'x,y wxh'. Say 'let me take a look' first.",
+             "(every monitor) or a region 'x,y wxh'. Say 'let me take a look' first. Not for what Claude Code "
+             "said or is doing: its transcript (claude_read, claude_say_latest) has the exact words.",
              _p({"question": S, "target": S}, ["question"])),
     "read_screen_text": ("Transcribe the exact text on screen (an error, a log, a dialog) when the wording matters; "
-                         "target as for look (default: the focused window). Slower than look.", _p({"target": S})),
+                         "target as for look (default: the focused window). Slower than look. Never to read what "
+                         "Claude Code said: claude_read and claude_say_latest read its transcript.", _p({"target": S})),
     "active_window": ("What the host is looking at: the focused window's app, title and workspace ('this' in his "
                       "question). No screenshot.", _p({})),
     "watch": ("Watch mode, only when the host turns it on: glance at the focused window every every_s seconds "
@@ -831,6 +844,37 @@ SPECS = {
                      _p({"question": S})),
     "browser_close": ("Close your own browser (when a web task is finished or Sir asks). It starts again on the next "
                       "browser call.", _p({})),
+    "claude_sessions": ("Claude Code's sessions on this workstation, newest first: project, title, when, messages, "
+                        "whether it's live now, its herdr pane, what it's doing, whether it's waiting on Sir, and its "
+                        "background jobs with their status. 'What is Claude working on?', 'is Claude waiting on me?' "
+                        "(waiting_on_you). session: one session's detail and all its jobs. project: filter. "
+                        "live_only: only the running ones. Cloud sessions (claude.ai) aren't on this machine.",
+                        _p({"project": S, "live_only": B, "session": S, "limit": I})),
+    "claude_read": ("Read a Claude Code conversation as plain text (redacted). session: an id, a job's agent id, or "
+                    "Sir's words ('the bromigOS one', 'left pane'); empty picks the live one. Default: the latest "
+                    "messages, and for a live session what it's doing now and its running jobs. since: a time "
+                    "(2h, yesterday, last night, an ISO time) or a cursor ('b123') from next; before: an older "
+                    "cursor. include_tools: also the tool calls and the first lines of their results. If the "
+                    "answer says ambiguous, ask Sir its one-line question.",
+                    _p({"session": S, "since": S, "before": S, "limit": I, "include_tools": B})),
+    "claude_search": ("Search Claude Code's transcripts and background jobs for words or a \"phrase\" (redacted "
+                      "snippets with session, project and time, newest first): 'find where we decided X', 'what "
+                      "did Claude change in the widgets last night'. project, days (default 30), include_tools.",
+                      _p({"query": S, "project": S, "days": I, "limit": I, "include_tools": B}, ["query"])),
+    "claude_memory": ("Claude Code's memory: the projects with memory, a project's MEMORY.md index and its files "
+                      "(project), one file (file), or a word search across them all (query).",
+                      _p({"project": S, "file": S, "query": S})),
+    "claude_logs": ("Claude Code's logs: kind history (the prompts Sir typed), debug (its debug log, when started "
+                    "with --debug) or tasks (background task output and whether it's still running). since: 2h, "
+                    "today, an ISO time. session: one session.", _p({"kind": S, "since": S, "session": S, "limit": I})),
+    "claude_say_latest": ("Read Claude Code's latest reply to Sir aloud in your voice ('read me what Claude said'): "
+                          "speech-friendly, redacted. n: the last n replies. about: 'what did Claude say about X' "
+                          "(finds that reply). session as for claude_read. When it says spoken, don't repeat it.",
+                          _p({"session": S, "n": I, "about": S})),
+    "claude_follow": ("Follow mode: read each new Claude Code reply aloud as its turn ends, until Sir says stop "
+                      "('read Claude's replies as they come', 'stop reading Claude'). mode: on, off or status. "
+                      "session: one session (as for claude_read) or 'all' (you say which session each reply is from).",
+                      _p({"mode": S, "session": S}, ["mode"])),
     "time_now": ("The local date and time.", _p({})),
     "calendar_month": ("A month calendar; offset_months 0 = this month.", _p({"offset_months": I})),
 }
@@ -883,6 +927,7 @@ def _plugin_tools():
 def _needs():
     import shutil
     from . import act, build, nolgia, reach, vault
+    from . import claude as claude_mod
     from . import create as create_mod
     from . import lab as lab_mod
     H = homelab()
@@ -910,6 +955,10 @@ def _needs():
         **{n: lab_mod.available() and _media_lab(H) for n in ("media_search", "media_get", "media_status",
                                                                "media_upcoming", "media_recent", "media_language",
                                                                "media_delete")},
+        # Claude Code's records: there is a ~/.claude/projects to read
+        **{n: os.path.isdir(os.path.join(claude_mod.root(), "projects")) for n in (
+            "claude_sessions", "claude_read", "claude_search", "claude_memory", "claude_logs", "claude_say_latest",
+            "claude_follow")},
         # the build loop changes the desktop through a dotfiles repo (build.py): none, no builder
         **{n: os.path.isdir(os.path.join(build.DOT, ".git")) for n in ("build_start", "build_status", "build_keep",
                                                                        "build_revert", "build_stop")},
@@ -1018,6 +1067,7 @@ WHILE_OFF = frozenset({
     "lab_jobs", "build_status", "build_stop", "load_skill", "my_setup", "look", "read_screen_text",
     "snapshot_list", "briefing_now", "time_now", "calendar_month", "quiet", "shell_off", "browser_close",
     "media_search", "media_status", "media_upcoming", "media_recent",
+    "claude_sessions", "claude_read", "claude_search", "claude_memory", "claude_logs", "claude_say_latest",
 })
 
 
@@ -1064,13 +1114,14 @@ def call(name, args, ui=None, live=None):
             res = FUNCS[name](**args)
         else:
             raise ValueError(f"unknown tool {name}")
+        read = res.pop("_read", None) if isinstance(res, dict) and name.startswith("claude_") else None
         why = _blocked(name, res)
         if why and TURN["active"]:
             TURN["blocked"] = f"{name} was blocked ({why})"
             res = dict(res, next=STOP_NOTE)
         text = _short(res)
         ms = int((time.monotonic() - t0) * 1000)
-        _audit(name, args, True, ms, len(text))
+        _audit(name, args, True, ms, len(text), read=read)
         events.emit("tool.end", id=eid, name=name, ok=True, ms=ms, outcome=_outcome(res))
         if name.startswith("vault_"):
             events.emit("vault.op", op=name[6:], path=args.get("path") or args.get("dst"), key=args.get("key"))

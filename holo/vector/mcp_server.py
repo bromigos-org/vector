@@ -26,7 +26,12 @@ from holo.vector import tools  # noqa: E402
 READ_ONLY = ["system_stats", "lab_status", "k8s_get", "k8s_logs", "k8s_events", "argocd_apps", "prometheus_query",
              "lab_vault_status",
              "github", "gnosis_search", "knowledge_search", "web_search", "web_fetch", "docs_search", "docs_read", "notes_read", "time_now", "calendar_month",
-             "media_search", "media_status", "media_upcoming", "media_recent"]
+             "media_search", "media_status", "media_upcoming", "media_recent",
+             "claude_sessions", "claude_search"]
+# Claude Code off the desktop: its sessions and a search, and claude_read as the latest view
+# only (CLAUDE_LATEST: a fixed signature, latest=True, no tool output). Never here: its memory
+# files and logs (claude_memory, claude_logs), reading aloud and follow mode.
+DESKTOP_ONLY = {"claude_memory", "claude_logs", "claude_say_latest", "claude_follow"}
 
 
 # Desktop-local actions for VECTOR's brain on Hermes (served on the LAN by mcp_lan.py).
@@ -67,6 +72,18 @@ def _wrap(name):
     return call, desc
 
 
+def claude_latest(session: str = "", limit: int = 10):
+    """The latest messages of a Claude Code session (redacted): session is an id or a few words
+    ('the bromigOS one'); empty picks the live one. Off the desktop this is the only view:
+    no paging back, no tool output."""
+    result, _ = tools.call("claude_read", {"session": session or None, "limit": max(1, min(int(limit or 10), 20)),
+                                           "latest": True})
+    try:
+        return json.loads(result)
+    except ValueError:
+        return result
+
+
 def build(desktop=None):
     """desktop: also publish ACT (the LAN server for Hermes does; VECTOR_MCP_READONLY=1 turns it off).
     The stdio server for local background workers stays read-only unless asked."""
@@ -81,10 +98,13 @@ def build(desktop=None):
     from . import plugins
     own = [n for n, t in plugins.TOOLS.items() if t.get("mcp") and t["level"] == "read" and n not in READ_ONLY]
     for name in READ_ONLY + own:            # and the plugins' read tools that ask to be here (plugins.tool mcp=True)
-        if name not in tools.FUNCS:          # the homelab's read tools come with bromigos-homelab, when configured
+        if name not in tools.FUNCS or name in DESKTOP_ONLY:   # the homelab's read tools come with bromigos-homelab
             continue
         fn, desc = _wrap(name)
         server.add_tool(fn, name=name, description=desc,
+                        annotations=ToolAnnotations(readOnlyHint=True, destructiveHint=False, openWorldHint=False))
+    if "claude_read" in tools.FUNCS:
+        server.add_tool(claude_latest, name="claude_read", description=claude_latest.__doc__,
                         annotations=ToolAnnotations(readOnlyHint=True, destructiveHint=False, openWorldHint=False))
     if desktop:
         for name in ACT:

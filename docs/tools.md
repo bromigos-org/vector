@@ -107,7 +107,7 @@ His eyes look only when you ask ([limits](safety.md#his-eyes)).
 | `ci_watch` | Waits for a commit's CI and reports the result |
 | `changes_check` | Lists what he left uncommitted or unpushed |
 | `github_repo_create` | Creates a new repository, private by default |
-| `herdr_status`, `herdr_read`, `herdr_send`, `herdr_start`, `herdr_wait` | Watches and talks to coding agents running in herdr, a terminal multiplexer for them |
+| `herdr_status`, `herdr_read`, `herdr_send`, `herdr_start`, `herdr_wait` | Starts and talks to coding agents running in herdr, a terminal multiplexer for them. What Claude Code says comes from its transcript ([Claude Code](#claude-code)), not herdr's screen |
 | `work_clone`, `work_status` | Makes or updates his own clones of his code, bromigOS, the homelab repository, the extensions catalog and your dotfiles |
 | `work_branch`, `work_commit`, `work_push` | Starts a branch, commits the files he names, and pushes the branch after rebasing it |
 | `pr_open`, `pr_watch`, `pr_merge`, `pr_close` | Opens a pull request, waits for its CI, merges his own when CI is green, or closes it |
@@ -116,6 +116,60 @@ A coding agent in herdr that becomes blocked or finishes becomes a notice from h
 
 He works in his clones as his own GitHub account, bromigodev. He never merges a pull
 request that touches his limits. [safety.md](safety.md#his-pull-requests) has the details.
+
+## Claude Code
+
+VECTOR reads Claude Code's own records on this machine: its sessions, their transcripts,
+the background jobs' own conversations, its memory files and its logs. It's the way he
+knows what Claude said or is doing. He never reads it off the screen or herdr's pane.
+
+| Tool | What it does |
+|---|---|
+| `claude_sessions` | Lists the sessions, newest first: project, title, start and last activity, message count, whether it's live, its herdr pane, what it's doing, whether it's waiting on you, and its background jobs with their status |
+| `claude_read` | Reads a conversation as plain text, page by page. By default, the latest messages, and for a live session what it's doing now and its running jobs and tasks. With `include_tools`, also each tool call and the first lines of its result |
+| `claude_search` | Finds words or a "phrase" across the transcripts and jobs, with snippets, newest first |
+| `claude_memory` | Reads Claude Code's memory: a project's MEMORY.md index, one file, or a search across them |
+| `claude_logs` | Reads the prompts you typed (`history`), its debug log (`debug`) and background task output (`tasks`) |
+| `claude_say_latest` | Reads Claude's latest reply aloud in his voice, or the one about something you name |
+| `claude_follow` | Follow mode: reads each new reply aloud as its turn ends, until you stop it |
+
+What you say, and what he does:
+
+- "What is Claude working on?" He lists the live sessions and what each is doing.
+- "Is Claude waiting on me?" He names the sessions that finished their turn and wait for
+  you, or wait for a permission.
+- "Read me what Claude said." He reads the latest reply in the live session aloud.
+- "What did Claude say about the den TV?" He finds that reply and reads it.
+- "What did Claude change in the widgets last night?" He searches, then reads that part.
+- "Find where we decided X." He searches the transcripts and tells you where and when.
+- "Read Claude's replies to me as they come." Follow mode is on: each finished reply is
+  read aloud once its turn has ended. Tool chatter and half-written answers are never read.
+  "Stop reading Claude" turns it off.
+
+**Which session.** With one live session, he uses it. With several, he takes the one you
+name ("the bromigOS one", "the left pane", "the research session"), else the focused herdr
+pane, else the clearly most recent. When it's a toss-up he asks: "There are two: bromigOS
+widgets, and the research notes. Which one?" Follow mode follows one session, or all of them,
+saying which session each reply came from.
+
+**Read aloud.** Replies are rewritten for speech. Headings and bold become plain sentences,
+lists are read item by item, a short table is read row by row ("Big monitor: Shows.") and a
+long one is summarised. Code becomes "a command to run is shown on screen", and a short
+one-liner is spelled out. Links and URLs become their site, file paths "a file path", and
+emoji and symbols are dropped. Redaction runs first.
+
+**Follow mode.** `bromigos vector claude follow on|off|toggle|status [session|all]` and
+SUPER+ALT+C work too. ◉ READING CLAUDE shows on his console and on the bar while it's on.
+Muted, he shows the replies without speaking them. He never talks into an open
+microphone, and talking over him stops him. `bromigos vector claude say [n]` reads the
+latest reply, or the last n.
+
+**From your phone.** His brain on Hermes gets `claude_sessions`, `claude_search`, and
+`claude_read` for the latest messages only. The memory files, the logs, reading aloud and
+follow mode stay on the desktop.
+
+Cloud sessions (claude.ai/code) aren't stored on this machine, so he doesn't see them.
+[safety.md](safety.md#claude-codes-records) has the limits.
 
 ## Your homelab
 

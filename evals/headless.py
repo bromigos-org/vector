@@ -66,7 +66,8 @@ from holo.vector import text as vtext  # noqa: E402
 READ = {"system_stats", "lab_status", "k8s_get", "k8s_logs", "k8s_events", "argocd_apps", "prometheus_query",
         "github", "gnosis_search", "knowledge_search", "conversation_history", "docs_search", "docs_read",
         "web_search", "web_fetch", "herdr_status", "herdr_read", "notes_read", "time_now", "calendar_month",
-        "vault_list", "app_search", "windows", "changes_check", "load_capability", "load_skill", "my_setup"}
+        "vault_list", "app_search", "windows", "changes_check", "load_capability", "load_skill", "my_setup",
+        "claude_sessions", "claude_read", "claude_search", "claude_memory", "claude_logs"}
 # Never real in an eval, whatever a policy says: they cost money or switch VECTOR off.
 NEVER = {"nolgia_generate", "nolgia_review", "nolgia_read", "nolgia_credits", "nolgia_catalog", "shell_off",
          "github_repo_create", "vault_put", "vault_copy",

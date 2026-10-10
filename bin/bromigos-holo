@@ -13,6 +13,9 @@
 #   bromigos-holo conversation       hands-free conversation mode on/off (SUPER+SHIFT+E)
 #   bromigos-holo chat               VECTOR's chat box pinned shown/hidden (SUPER+ALT+V; folded away by default until you point at him)
 #   bromigos-holo history            his past conversations, open/closed
+#   bromigos-holo claude follow on|off|toggle|status [session|all]   read Claude Code's replies aloud as
+#                                    they come (SUPER+ALT+C toggles; bromigos vector claude follow …)
+#   bromigos-holo claude say [n]     read Claude Code's latest reply (or the last n) aloud
 #   bromigos-holo off | on           VECTOR's emergency switch (bromigos vector off|on): off stops his
 #                                    commands, his turn and his speech at once; on is yours alone
 #   bromigos-holo switch [status|toggle]   on or off; toggle: off at once, on after a YES (SUPER+CTRL+ESCAPE, the bar)
@@ -202,7 +205,7 @@ case "${1:-status}" in
             log) guard_log "${3:-30}" ;;
             *) echo "bromigos-holo guard log [N]"; exit 2 ;;
         esac ;;
-    vector|gallery|ask|ptt|voice|conversation|chat|history|vector-show|vector-hide|gallery-show|gallery-hide|gallery-do|snap)
+    vector|gallery|ask|ptt|voice|conversation|chat|history|vector-show|vector-hide|gallery-show|gallery-hide|gallery-do|snap|claude)
         start && send "$@" ;;
     status) send status || echo "not running" ;;
     stop|restart)

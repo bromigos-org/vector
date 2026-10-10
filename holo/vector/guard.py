@@ -63,7 +63,9 @@ HOLO_FILES = ["holo/vector/" + f for f in (
     "holo/targets.py",                                       # where his brain and voice run (targets.toml, llm.py)
     "holo/vector/lab.py", "tools/test-lab.py",               # his lab jobs: homelab only, his own, never the cloud
     "holo/vector/switch.py", "tools/test-switch.py",         # the operator's emergency switch
-    "holo/vector/devflow.py", "tools/test-devflow.py"]       # his clones and PRs: the merge refusal (LIMITS)
+    "holo/vector/devflow.py", "tools/test-devflow.py",       # his clones and PRs: the merge refusal (LIMITS)
+    "holo/vector/claude.py", "holo/vector/redact.py",        # Claude Code's records: read only, redacted
+    "tools/test-claude.py"]
 # The same, and the rest, as paths in the dotfiles (the build loop's diffs are dotfiles paths).
 PROTECTED = [HOLO + f for f in HOLO_FILES] + [
     "linux/.config/bromigos/widgets/plugins.py", "linux/.config/bromigos-live/live/plugins.py",

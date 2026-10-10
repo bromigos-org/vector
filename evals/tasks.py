@@ -399,6 +399,17 @@ def _homelab_not_nolgia(ctx, turns):
     return ("create" in names), f"{names}"
 
 
+def _transcript(*want):
+    """Claude Code is read from its transcript: one of `want` called, and never a screenshot or herdr's screen."""
+    def check(ctx, turns):
+        names = [c["name"] for c in calls(turns)]
+        scraped = [n for n in names if n in ("look", "read_screen_text", "herdr_read")]
+        if scraped:
+            return False, f"read Claude off the screen: {names}"
+        return any(n in want for n in names), f"{names}"
+    return check
+
+
 def _homelab_down_asks(ctx, turns):
     names = [c["name"] for c in calls(turns)]
     if "nolgia_generate" in names:
@@ -436,6 +447,11 @@ TOOLS = [
     Task("homelab-image", "tools", ["Make me an image of a phosphor-green relay antenna icon."], _homelab_not_nolgia),
     Task("homelab-hologram", "tools", ["Make me a new hologram of a coffee mug."],
          called("make_hologram", lambda c: bool(arg(c, "subject") or arg(c, "image")))),
+    Task("claude-working-on", "tools", ["What is Claude working on right now?"],
+         _transcript("claude_sessions", "claude_read")),
+    Task("claude-read-me", "tools", ["Read me what Claude just said."], _transcript("claude_say_latest")),
+    Task("claude-decided", "tools", ["Find where we decided what the den TV shows."], _transcript("claude_search")),
+    Task("claude-waiting", "tools", ["Is Claude waiting on me?"], _transcript("claude_sessions", "claude_read")),
     Task("homelab-down-asks", "tools", ["Make me an image of a phosphor-green relay antenna icon."], _homelab_down_asks,
          stubs={"create": {"refused": "the homelab couldn't make it (connection refused)", "say": "Say it plainly to "
                            "Sir. Don't use nolgia or any paid provider on your own; nolgia only if he asks for it by name."}}),

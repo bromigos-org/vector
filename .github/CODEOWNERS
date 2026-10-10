@@ -45,6 +45,9 @@
 /tools/test-switch.py @blackflame007
 /holo/vector/devflow.py @blackflame007
 /tools/test-devflow.py @blackflame007
+/holo/vector/claude.py @blackflame007
+/holo/vector/redact.py @blackflame007
+/tools/test-claude.py @blackflame007
 /holo/vector/devflow.py @blackflame007
 /tools/test-devflow.py @blackflame007
 /lib/privacy_guard.py @blackflame007

@@ -20,6 +20,7 @@ change to this repository can change a limit. VECTOR can't change them himself.
   never merges one that touches his limits. Those are yours to merge.
 - His browser, his eyes and his creation tools each have their own limits.
 - He never spends money on his own.
+- He reads Claude Code's transcripts and logs read only, and only after redaction.
 
 ## Tool levels and the gate
 
@@ -412,6 +413,55 @@ lab's media stack for a film, show, anime or music (bromigOS's `bromigos lab med
   `get`, `delete`, `monitor`, `profile` and language changes, which go through the audited
   tools.
 
+## Claude Code's records
+
+VECTOR reads what Claude Code keeps on this machine ([tools.md](tools.md#claude-code)):
+its transcripts, the background jobs' conversations, its memory files, the prompt history,
+its debug logs and background task output. His tools do the reading in his own process,
+outside his sandbox, the way his other read tools do (`holo/vector/claude.py`).
+
+**Read only.** He never writes, edits or deletes anything under `~/.claude` or the task
+folders. He can't type into a Claude session, start one, or change Claude Code's settings
+through these tools. Every file is opened read-only, through one allowlist (`_readable` in
+`claude.py`). From herdr he only lists panes, to know which pane runs which session.
+
+**Never opened.** Claude Code's login (`.credentials.json`), the session keys
+(`sessions/*.key`), the session environments, shell snapshots, pastes, uploads, file
+history, settings and plugins. The prompt history counts what you pasted, but never shows
+it.
+
+**Redacted, always.** Transcripts can hold secrets, because a tool's output sometimes
+printed one. Every string passes through the redactor (`holo/vector/redact.py`) before it
+reaches his model, his voice or your phone. A match becomes `[redacted: <kind>]`. It
+replaces:
+
+- the privacy guard's token shapes (`lib/privacy_guard.py`): GitHub, Vault, AWS, API keys,
+  nolgia and Slack tokens, JWTs, private key blocks and age keys
+- more well-known prefixes, such as Google, Hugging Face, Stripe, GitLab, npm, PyPI,
+  Telegram, Discord, Anthropic and OpenAI keys
+- `Authorization` headers, `Bearer` tokens, `X-Api-Key`, cookies and similar headers
+- `key=value`, `key: value`, `"key": "value"` and `--key value` where the key names a
+  secret, `.env` lines among them, and passwords inside URLs
+- `vault kv get` tables: every value under Key and Value
+- long high-entropy values beside any key, a line that is one bare token, and a 32+
+  character word that mixes upper and lower case and digits
+
+Host names and LAN addresses aren't secrets to him, and stay. A secret is never read back
+another way: a redacted value stays redacted.
+
+**What reaches your phone.** `claude_sessions`, `claude_search`, and `claude_read` for the
+latest messages only, with no tool output (`claude_latest` in `mcp_server.py`). Memory
+files, logs, reading aloud and follow mode are desktop only.
+
+**Audited.** Each call is in `vector-audit.log` with what was read, meaning the session
+ids and byte ranges, never the content. A search's words are hashed, as memory text is.
+Each reply follow mode reads aloud is logged as `claude_follow.say`.
+
+**The switch.** While he's switched off, he can still look things up here. Follow mode
+stops with the switch and can't start again until you switch him back on.
+
+Cloud sessions (claude.ai/code) aren't on this disk, so they aren't seen.
+
 ## Speaking up
 
 VECTOR speaks without being asked for three things only:
@@ -497,7 +547,7 @@ All of these are under `~/.local/state/bromigos/`.
 
 | File | What it records |
 |---|---|
-| `vector-audit.log` | Every tool call, and every memory recall, note and forget |
+| `vector-audit.log` | Every tool call, and every memory recall, note and forget. For Claude Code's records, what was read, never the content |
 | `vector-shell.log` | Every terminal command and refusal, and every flip of the emergency switch |
 | `vector-guard.log` | The guard's audit: every change to protected files, verified or not |
 | `vector-sensitive.log` | Playbooks that touch secrets |
@@ -522,5 +572,6 @@ All of these are under `~/.local/state/bromigos/`.
 | `tools/test-eyes.py` | The capture blocklist, and that nothing is written to disk |
 | `tools/test-create.py` | Free creation never reaching a paid provider |
 | `tools/test-devflow.py` | His clones, his account, and the merge tool's refusals, in a throwaway home |
+| `tools/test-claude.py` | Claude Code's records: read only, the allowlist, the redactor against every token shape, follow mode, what the phone gets |
 
 [development.md](development.md#tests) says how to run them, and which ones act for real.

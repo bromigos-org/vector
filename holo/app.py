@@ -580,6 +580,9 @@ class App:
                                                   lambda text: GLib.idle_add(self.pscene.note, text))
             from .vector.eyes import WATCH
             WATCH.on_change = lambda st: GLib.idle_add(self._watch_changed, st)
+            from .vector import claude as claude_mod      # Claude Code's replies, read aloud (claude.py)
+            claude_mod.SPEAKER = self._claude_speaker
+            claude_mod.FOLLOW.on_change = lambda st: GLib.idle_add(self._follow_changed, st)
             GLib.timeout_add_seconds(6, self._announce_trial)
             from .vector.reach import HerdrWatcher
             self.herdr = HerdrWatcher(lambda msg, a: GLib.idle_add(self._herdr_notice, msg))
@@ -617,6 +620,11 @@ class App:
         log("switch: off, by", by)
         from .vector.shell import RUNNER
         RUNNER.kill("switched off")
+        try:
+            from .vector.claude import FOLLOW
+            FOLLOW.stop()                             # reading Claude aloud ends with his speech
+        except Exception as e:
+            log("switch: follow stop failed:", e)
         if not own:
             try:
                 if self.brain:
@@ -829,6 +837,30 @@ class App:
         self.pscene.watching = st if st.get("on") else None
         if was and not st.get("on"):
             self._herdr_notice("I've stopped watching your screen.")
+        self._publish_state()
+        return False
+
+    def _claude_speaker(self, text, label):
+        """claude.py's voice: Claude Code's reply, made speech-friendly and redacted there, on
+        the console and aloud. Any thread. -> whether it will be spoken (not when he's muted or
+        switched off: then it's only shown, and the tool hands the text back)."""
+        if self._switch_off:
+            return False
+        v = self.voice
+        speak = bool(v and not v.muted)
+        GLib.idle_add(self._claude_say, text, speak)
+        return speak
+
+    def _claude_say(self, text, speak):
+        self.pscene.note(text)
+        if speak and self.voice and not self.voice.muted and not self.voice.rec:   # never into an open mic
+            self.voice.say(text, role="main")
+        return False
+
+    def _follow_changed(self, st):
+        """Follow mode on the console and the bar for as long as it's on."""
+        self.claude_follow = st if st.get("on") else None
+        self.pscene.claude_follow = self.claude_follow
         self._publish_state()
         return False
 
@@ -1544,6 +1576,7 @@ class App:
               "voice_colour": self.pscene.voice_hex(role) if self.vector else None,
               "mood": self.pscene.mood_name() if self.vector else "calm",
               "watching": getattr(self, "watching", None) if (getattr(self, "watching", None) or {}).get("on") else None,
+              "claude_follow": getattr(self, "claude_follow", None),
               "suppressed": (self._suppressed() or [None])[0],
               "switch": "off" if self._switch_off else "on"}
         sig = json.dumps(st, sort_keys=True)
@@ -1649,6 +1682,37 @@ class App:
                 GLib.timeout_add(500, wait)
                 return "stopping after the current turn"
             GLib.idle_add(Gtk.main_quit)
+        elif verb == "claude":
+            # claude follow on [session|all] | off | toggle | status; claude say [n] (bromigos vector claude …)
+            # through tools.call, so the audit log and the emergency switch apply as to his own calls
+            from .vector import tools
+            from .vector.claude import FOLLOW
+            what, _, rest = arg.strip().partition(" ")
+            sub, _, who = rest.strip().partition(" ")
+            if what == "follow":
+                if sub == "toggle":
+                    sub = "off" if FOLLOW.on else "on"
+                if sub in ("on", "off", "status", ""):
+                    args = {"mode": sub or "status"}
+                    if who.strip():
+                        args["session"] = who.strip()
+                    res, _ = tools.call("claude_follow", args)
+                    try:
+                        d = json.loads(res)
+                    except ValueError:
+                        return res
+                    if d.get("ask"):
+                        return d["ask"] + " (bromigos vector claude follow on <session or words>)"
+                    if d.get("refused") or d.get("error"):
+                        return "error: " + str(d.get("refused") or d.get("error"))
+                    if not d.get("on"):
+                        return "follow off"
+                    return f"following {d.get('target') if d.get('target') == 'all' else ', '.join(d.get('sessions') or [])}"
+            elif what == "say":
+                args = {"n": int(sub)} if sub.isdigit() else ({"session": rest.strip()} if rest.strip() else {})
+                threading.Thread(target=lambda: tools.call("claude_say_latest", args), daemon=True).start()
+                return "reading"
+            return "claude follow on|off|toggle|status [session|all]; claude say [n]"
         elif verb == "say":                # the build watcher (another process) speaks through here
             self._herdr_notice(arg[:300])
             return "ok"

@@ -251,3 +251,140 @@ def tag_untagged(text):
         run.append(sent)
     close()
     return " ".join(out)
+
+
+# ---------------------------------------------------------------- someone else's markdown, read aloud
+# Claude Code's replies (claude.py) are markdown written for a screen. read_aloud() makes
+# them sound natural in VECTOR's voice: headings and bold become plain sentences, a list
+# is read item by item, a short table row by row ("Big monitor: Shows."), a long one is
+# summarised, code becomes "a command to run is shown on screen" (a short one-liner is
+# spelled out), links and URLs become their site, file paths "a file path", and emoji and
+# symbols go. The caller's redaction runs first, and again here.
+_FENCE = re.compile(r"^[ \t]*(`{3,}|~{3,})[ \t]*([\w+#.-]*)[^\n]*\n(.*?)(?:^[ \t]*\1[ \t]*$|\Z)", re.M | re.S)
+_TABLE_ROW = re.compile(r"^\s*\|?(.+\|.+?)\|?\s*$")
+_TABLE_SEP = re.compile(r"^\s*\|?\s*:?-{2,}:?\s*(\|\s*:?-{2,}:?\s*)*\|?\s*$")
+_URL = re.compile(r"\b(?:https?|ftp)://([^\s/?#<>()\]]+)(?:[^\s<>()\]]*[^\s<>()\].,;:!?'\"])?", re.I)
+_PATH = re.compile(r"(?<![\w/:.])(?:~|\.{1,2})?(?:/[\w.@+-]+){2,}/?|(?<![\w/:.])[\w.@+-]+(?:/[\w.@+-]+){2,}/?")
+_EMOJI = re.compile("[\U0001F000-\U0001FAFF\U00002600-\U000027BF\U0001F900-\U0001F9FF⬀-⯿️‍"
+                    "←-⇿─-▟■-◿✀-➿⌀-⏿]")
+_REDACTED = re.compile(r"\[redacted(?::\s*([^\]]+))?\]")
+_SHELLISH = {"sh", "bash", "zsh", "shell", "console", "fish", "terminal", "cmd", "powershell", "ps1"}
+
+
+def _site(m):
+    host = m.group(1).lower().split("@")[-1].split(":")[0]
+    return host[4:] if host.startswith("www.") else host
+
+
+def _spell_code(code):
+    """A short one-liner, said aloud: the words, with the symbols that don't read dropped."""
+    c = _URL.sub(_site, code)
+    c = _PATH.sub("a file path", c)
+    c = re.sub(r"[`$<>{}\[\]|\;&*#^\"]", " ", c)
+    return re.sub(r"\s+", " ", c).strip()
+
+
+def _code_block(lang, body):
+    lines = [x for x in body.strip("\n").split("\n") if x.strip()]
+    lang = (lang or "").lower()
+    if len(lines) == 1:
+        one = re.sub(r"^\s*[$#>]\s+", "", lines[0]).strip()
+        if len(one.split()) < 8 and lang in _SHELLISH | {""}:
+            return f"\n\nThe command is: {_spell_code(one)}.\n\n"
+    if lang in _SHELLISH or (lines and all(re.match(r"^\s*[$#]\s", x) for x in lines[:3])):
+        what = "A command to run is shown on screen." if len(lines) <= 1 else "Some commands to run are shown on screen."
+    elif lang in ("diff", "patch"):
+        what = "A change is shown on screen."
+    elif lang in ("json", "yaml", "yml", "toml", "ini", "xml", "csv"):
+        what = "Some data is shown on screen."
+    elif lang in ("text", "txt", "log", "output") or not lang:
+        what = "Some output is shown on screen." if len(lines) > 1 else "A line is shown on screen."
+    else:
+        what = "Some code is shown on screen."
+    return f"\n\n{what}\n\n"
+
+
+def _cells(line):
+    return [c.strip() for c in line.strip().strip("|").split("|")]
+
+
+def _table(rows, max_rows=6):
+    head, body = _cells(rows[0]), [_cells(r) for r in rows[2:] if r.strip()]
+    if not body:
+        return ", ".join(h for h in head if h) + "."
+    if len(body) > max_rows:
+        first = [r[0] for r in body[:3] if r and r[0]]
+        return (f"A table of {len(body)} rows, by {', '.join(h for h in head if h)}. The first ones are "
+                + ", ".join(first[:-1]) + (" and " if len(first) > 1 else "") + (first[-1] if first else "") + ".")
+    out = []
+    for r in body:
+        r = r + [""] * (len(head) - len(r))
+        if len(head) <= 2:
+            out.append(f"{r[0]}: {r[1]}." if len(r) > 1 and r[1] else f"{r[0]}.")
+        else:
+            rest = ", ".join(f"{h} {v}" if h else v for h, v in zip(head[1:], r[1:]) if v)
+            out.append(f"{r[0]}: {rest}." if rest else f"{r[0]}.")
+    return " ".join(out)
+
+
+def _tables(text, max_rows=6):
+    lines, out, i = text.split("\n"), [], 0
+    while i < len(lines):
+        if (i + 1 < len(lines) and _TABLE_ROW.match(lines[i]) and _TABLE_SEP.match(lines[i + 1])
+                and "|" in lines[i]):
+            j = i + 2
+            while j < len(lines) and "|" in lines[j] and lines[j].strip():
+                j += 1
+            out += ["", _table(lines[i:j], max_rows), ""]
+            i = j
+        else:
+            out.append(lines[i])
+            i += 1
+    return "\n".join(out)
+
+
+def _inline_code(m):
+    c = m.group(1).strip()
+    if _URL.search(c):
+        return _URL.sub(_site, c)
+    if _PATH.fullmatch(c) or (("/" in c) and " " not in c and len(c) > 3):
+        return "a file path"
+    if len(c.split()) <= 4:
+        return _spell_code(c)
+    return "a command"
+
+
+def read_aloud(text, max_rows=6):
+    """Markdown written for a screen, as natural speech (see above)."""
+    from .redact import redact
+    t = redact(text or "")
+    t = _FENCE.sub(lambda m: _code_block(m.group(2), m.group(3)), t)
+    t = _tables(t, max_rows)
+    t = re.sub(r"(?m)^\s*(?:-{3,}|\*{3,}|_{3,})\s*$", "", t)          # rules
+    t = re.sub(r"(?m)^\s*>\s?", "", t)                                 # quotes
+    t = re.sub(r"</?[a-zA-Z][^>\n]*>", "", t)                          # html tags
+    t = re.sub(r"!\[([^\]]*)\]\([^)]*\)", lambda m: m.group(1) and f"an image, {m.group(1)}", t)
+    t = re.sub(r"\[([^\]]+)\]\(([^)\s]+)[^)]*\)", lambda m: m.group(1), t)      # links: their words
+    t = re.sub(r"`([^`\n]+)`", _inline_code, t)
+    t = _URL.sub(_site, t)
+    t = _PATH.sub("a file path", t)
+    t = _REDACTED.sub("something redacted", t)
+    # headings: a sentence of their own
+    t = re.sub(r"(?m)^\s{0,3}#{1,6}\s*(.+?)\s*#*\s*$", lambda m: m.group(1).rstrip(".:") + ".", t)
+    t = _BOLD.sub(r"\2", t)
+    t = _EM.sub(r"\2", t)
+    t = t.replace("**", "").replace("__", "")
+    # lists: each item a sentence ("1." numbering read as the order it already has)
+    t = re.sub(r"(?m)^\s*(?:[-*+•]|\d+[.)])\s+(.+?)\s*$",
+               lambda m: m.group(1) + ("" if re.search(r"[.!?:;]$", m.group(1)) else "."), t)
+    t = t.replace("—", ", ").replace("–", ", ").replace("→", " to ").replace("←", " from ").replace("&", " and ")
+    t = t.replace("·", ", ").replace("…", "...").replace("≈", "about ").replace("×", " by ")
+    t = _EMOJI.sub("", t)
+    t = re.sub(r"[|~^*_#`<>\\{}\[\]]", " ", t)
+    t = re.sub(r"[ \t]+", " ", t)
+    t = re.sub(r"\s+([,.!?;:])", r"\1", t)
+    t = re.sub(r"([.!?:;,])\s*\n+\s*", r"\1 ", t)                      # a line that ends in punctuation
+    t = re.sub(r"\s*\n+\s*", ". ", t)
+    t = re.sub(r"(?:\s*[.,;:]){2,}", ".", t)
+    t = re.sub(r"\s{2,}", " ", t)
+    return t.lstrip(" .,;:").rstrip(" ,;")

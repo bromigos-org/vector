@@ -272,6 +272,7 @@ class VectorScene:
         sh = getattr(self, "shell_cmd", None)
         bl = getattr(self, "build_line", None)
         wt = getattr(self, "watching", None) or {}
+        cf = getattr(self, "claude_follow", None) or {}
         return (self.motion, T.version(), a.state, a.mood_name(), tuple(np.round(a.tint_to, 3)),
                 a.state == "idle" and a.state_t > 6, self.subtitle, self.voice, self.route,
                 len(self.msgs), last and (last.role, len(last.text), last.done),
@@ -280,7 +281,8 @@ class VectorScene:
                 self.stage.still_sig() if self.stage else None, self.ex_parts,
                 bool(mf and now - mf[2] < 1.8) and mf[:2], sh and (sh[0], int(now - sh[1])),
                 bl and (bl[0], bl[1], int(time.time() - bl[2])),
-                wt and (int(wt.get("seconds_left") or 0), wt.get("paused")))
+                wt and (int(wt.get("seconds_left") or 0), wt.get("paused")),
+                cf and (cf.get("target"), cf.get("spoken"), tuple(cf.get("sessions") or ())))
 
     # ------------------------------------------------------------------ render
     def render(self, fbo, w, h):
@@ -390,6 +392,12 @@ class VectorScene:
             left = int(wt.get("seconds_left") or 0)
             H.label(f"◉ WATCHING YOUR SCREEN · {left // 60}:{left % 60:02d}" + (" · PAUSED" if wt.get("paused") else ""),
                     w - 28 * sc, 62 * sc, col("danger", 1, f), int(12 * sc), "bold", anchor="rt", spacing=1.5)
+        cf = getattr(self, "claude_follow", None)
+        if cf:   # follow mode: Claude Code's replies read aloud, for as long as it's on
+            who = "ALL SESSIONS" if cf.get("target") == "all" else ((cf.get("sessions") or ["CLAUDE"])[0]).upper()
+            txt = f"◉ READING CLAUDE · {who}"
+            H.label(txt if len(txt) <= 60 else txt[:59] + "…", w - 28 * sc, (80 if wt else 62) * sc,
+                    col("phosphor", 1, f), int(12 * sc), "bold", anchor="rt", spacing=1.5)
         if getattr(self, "conversation", False):   # hands-free: say so, all the time
             pulse = 1.0 if calm else 0.55 + 0.45 * math.sin(now * 3.2)     # calm: no blinking
             H.label("● CONVERSATION · LISTENING", w - 28 * sc, 44 * sc, col("danger", 1, pulse * pf), int(12 * sc), "bold",

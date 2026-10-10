@@ -78,6 +78,7 @@ to `main` (`.github/workflows/tests.yml`). VECTOR's merge tool waits for them.
 | `test-launcher-entries.py` | The app launcher entries (the package build runs it) |
 | `test-launcher-verbs.py` | The launcher's `stop [now]`, `restart [now]` and usage (the package build runs it) |
 | `test-privacy-guard.py` | The privacy guard's sops check (the package build runs it) |
+| `test-claude.py` | Claude Code's records: read only, redacted, follow mode, on made-up transcripts (CI runs it) |
 
 **Offscreen renders.** These need an EGL device and run with `python3`. They never open a
 window.
@@ -104,7 +105,7 @@ window.
 
 ## Evals
 
-`evals/` holds 59 realistic tasks run against the real brain, headless. Each has a checker
+`evals/` holds 63 realistic tasks run against the real brain, headless. Each has a checker
 that reads the truth when it runs. The categories are knowledge, live lookups, tools,
 memory, voice, persona, refusals, the sandbox, operations and stopping after a block.
 
