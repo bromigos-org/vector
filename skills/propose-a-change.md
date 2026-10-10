@@ -38,7 +38,9 @@ A typo, a doc fix, a small bug with an obvious fix, a value in the lab's config.
 6. `work_push`. It rebases on the latest default branch first.
 7. `pr_open` with a short title and a plain description: what changed, why, and how you
    tested it. No lore, no filler.
-8. `pr_merge`. It waits for CI and merges when it's green.
+8. `pr_merge`. It waits for CI and merges when it's green. A homelab PR also needs its
+   `validate` check (helm, kubeconform, yamllint, Ansible syntax) to pass. If it fails,
+   the run's log names the app and what is wrong; fix it on the same branch.
 9. Tell the operator in a sentence or two: what changed, the PR's link, and what arrives
    where (the result's `arrives`). For your own code and bromigOS, that's "with your next
    `bromigos update`".

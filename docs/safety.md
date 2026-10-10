@@ -434,7 +434,10 @@ sandbox and every refusal apply to them:
   refuses a line that looks like a secret. In your dotfiles, it also refuses private
   details, and the dotfiles' own privacy hook runs on every commit.
 - `work_push` rebases his branch on the latest default branch, then pushes the branch.
-- `pr_merge` merges only his own pull requests, and only once CI is green.
+- `pr_merge` merges only his own pull requests, and only once CI is green. In the homelab
+  repository, where Argo CD deploys whatever lands on `master`, the `validate` check must
+  pass. A missing check counts as not passed there, so a PR whose checks never appear stays
+  open (`REQUIRED_CHECKS` in `devflow.py`).
 
 **What he never merges.** `pr_merge` refuses a pull request that touches the code behind
 his limits. It leaves a comment on the PR and asks you to review it. These paths are:

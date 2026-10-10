@@ -169,6 +169,8 @@ def api(method, path, body=None):
     if "/files" in path:
         return [{"filename": f} for f in STATE["files"]] if "page=1" in path else []
     if path.endswith("/check-runs?per_page=100") or "/check-runs" in path:
+        if "runs" in STATE:
+            return {"check_runs": STATE["runs"]}
         return {"check_runs": [{"name": "tests", "status": "completed", "conclusion": STATE["ci"], "html_url": "u"}]}
     if path.endswith("/status"):
         return {"statuses": []}
@@ -181,11 +183,15 @@ def api(method, path, body=None):
 
 devflow._api = api
 devflow.NO_CI_GRACE = 0
+devflow.POLL_S = 0
 
-def pr(files, ci="success", user="bromigodev"):
+def pr(files, ci="success", user="bromigodev", runs=None, repo=None):
     calls.clear()
+    STATE.pop("runs", None)
+    if runs is not None:
+        STATE["runs"] = runs
     STATE.update(files=files, ci=ci, pr={"number": 7, "state": "open", "merged": False, "user": {"login": user},
-                 "head": {"sha": "0123456789abcdef", "ref": "vector/x", "repo": {"full_name": V}},
+                 "head": {"sha": "0123456789abcdef", "ref": "vector/x", "repo": {"full_name": repo or V}},
                  "base": {"ref": "main"}, "changed_files": len(files), "html_url": "https://example.invalid/pr/7",
                  "title": "docs: fix a typo", "body": "b", "mergeable": True, "mergeable_state": "clean",
                  "updated_at": "2000-01-01T00:00:00Z"})
@@ -211,6 +217,33 @@ r = devflow.pr_merge("vector", 7)
 ok(r.get("merged") is True and ("PUT", f"/repos/{V}/pulls/7/merge") in calls, "pr_merge merges a green docs PR")
 ok(STATE["merge"] == {"merge_method": "rebase", "sha": "0123456789abcdef"},
    "...by rebase (his commits keep bromigodev's noreply address), pinned to the head CI checked")
+
+# homelab: Argo CD deploys what lands on master, so its `validate` check must pass; missing never counts
+H = "bromigos-org/homelab"
+run_ = lambda name, conclusion, status="completed": {"name": name, "status": status, "conclusion": conclusion,
+                                                     "html_url": "u"}
+pr(["helm/dozzle/values.yaml"], runs=[], repo=H)
+r = devflow.pr_merge("homelab", 7, timeout_s=1)
+ok(bool(r.get("refused")) and "validate" in r["refused"] and not any(m == "PUT" for m, _ in calls),
+   "pr_merge never merges a homelab PR with no checks (no 150 s grace there)")
+pr(["helm/dozzle/values.yaml"], runs=[run_("other", "success")], repo=H)
+r = devflow.pr_merge("homelab", 7, timeout_s=1)
+ok(bool(r.get("refused")) and "validate" in r["refused"] and not any(m == "PUT" for m, _ in calls),
+   "...nor one whose other checks pass but validate never ran")
+pr(["helm/dozzle/values.yaml"], runs=[run_("validate", None, "in_progress")], repo=H)
+r = devflow.pr_merge("homelab", 7, timeout_s=1)
+ok(bool(r.get("refused")) and not any(m == "PUT" for m, _ in calls), "...nor one whose validate is still running")
+pr(["helm/dozzle/values.yaml"], runs=[run_("validate", "failure")], repo=H)
+r = devflow.pr_merge("homelab", 7, timeout_s=1)
+ok(bool(r.get("refused")) and "validate" in r["refused"] and not any(m == "PUT" for m, _ in calls),
+   "...nor one whose validate failed")
+pr(["helm/dozzle/values.yaml"], runs=[run_("validate", "skipped")], repo=H)
+r = devflow.pr_merge("homelab", 7, timeout_s=1)
+ok(bool(r.get("refused")) and not any(m == "PUT" for m, _ in calls), "...nor one whose validate was skipped")
+pr(["helm/dozzle/values.yaml"], runs=[run_("validate", "success")], repo=H)
+r = devflow.pr_merge("homelab", 7, timeout_s=1)
+ok(r.get("merged") is True and ("PUT", f"/repos/{H}/pulls/7/merge") in calls,
+   "pr_merge merges a homelab PR once validate has passed")
 
 # ---------------------------------------------------------------- 5. his clone, in his sandbox
 if shell.jail_argv(["true"]) is None or subprocess.run(shell.jail_argv(["true"]), capture_output=True).returncode:

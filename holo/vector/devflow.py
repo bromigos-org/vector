@@ -14,8 +14,9 @@
     clone's code or git config outside the sandbox.
   * The tools: work_clone (clone, or fetch and rebase his branches), work_status,
     work_branch, work_commit (explicit paths only), work_push (rebases first), pr_open,
-    pr_watch (CI on the PR's head) and pr_merge. GitHub's API is reached here with
-    urllib and his token.
+    pr_watch (CI on the PR's head) and pr_merge. A repo in REQUIRED_CHECKS (homelab: its
+    `validate` check) is merged only once those checks pass: missing is never green.
+    GitHub's API is reached here with urllib and his token.
   * pr_merge refuses a PR that touches the code behind his limits (LIMITS, below: one list
     per repo, the only place these paths are named; the CODEOWNERS files are made from it).
     GitHub doesn't enforce CODEOWNERS on these private repos on the free plan, so this
@@ -568,21 +569,54 @@ def _age(pr):
 
 
 NO_CI_GRACE = 150     # seconds: a PR's checks usually appear within a minute
+POLL_S = 15
+
+# Checks a repo's PRs must pass, by check-run name, before pr_merge merges one. GitHub's free
+# plan can't require a check on a private repo, so this is the enforcement. Without them, "no
+# checks within NO_CI_GRACE" counts as nothing to wait for; with them, a missing check is
+# waited for (pending) and never merged past. homelab: Argo CD deploys whatever lands on
+# master, and its workflow .github/workflows/validate.yml (job `validate`) is the gate.
+REQUIRED_CHECKS = {
+    "bromigos-org/homelab": ["validate"],
+}
+
+
+def _required(slug, state, runs):
+    """-> (state, missing): the state with the repo's required checks applied, and the
+    required checks that haven't passed yet."""
+    need = REQUIRED_CHECKS.get(slug) or []
+    missing = []
+    for name in need:
+        mine = [r for r in runs if r["name"] == name]
+        if not mine:
+            missing.append(name)
+            if state != "red":
+                state = "pending"
+        elif any(r["status"] != "completed" for r in mine):
+            missing.append(name)
+            if state != "red":
+                state = "pending"
+        elif not all(r["conclusion"] in ("success",) for r in mine):
+            missing.append(name)
+            state = "red"
+    return state, missing
 
 
 def pr_watch(repo, number, timeout_s=900):
-    """Wait for CI on a PR's head commit: green, red, or none (the repo runs no checks for it)."""
+    """Wait for CI on a PR's head commit: green, red, or none (the repo runs no checks for it).
+    A repo with REQUIRED_CHECKS is never none: its checks are waited for until they finish."""
     slug = REPOS[_name(repo)]
     t0 = time.monotonic()
     while True:
         number, pr = _pr(slug, number)
         sha = pr["head"]["sha"]
         state, runs = _ci(slug, sha)
+        state, missing = _required(slug, state, runs)
         waited = time.monotonic() - t0
         if state in ("green", "red") or (state == "none" and max(waited, _age(pr)) >= NO_CI_GRACE) or \
                 waited >= min(int(timeout_s or 900), 1800):
             break
-        time.sleep(15)
+        time.sleep(POLL_S)
     try:
         from . import events
         events.emit("ci.result", repo=slug, sha=sha[:8], workflow=f"PR #{number}", status=state,
@@ -591,7 +625,8 @@ def pr_watch(repo, number, timeout_s=900):
         pass
     return {"repo": slug, "number": number, "sha": sha[:8], "ci": state, "runs": runs[:20], "url": pr["html_url"],
             "waited_s": round(time.monotonic() - t0),
-            **({"note": "no checks ran for this PR: the repo's workflows don't cover these files"} if state == "none" else {})}
+            **({"note": "no checks ran for this PR: the repo's workflows don't cover these files"} if state == "none" else {}),
+            **({"required": REQUIRED_CHECKS[slug], "not_passed": missing} if slug in REQUIRED_CHECKS else {})}
 
 
 ARRIVES = {
@@ -631,6 +666,11 @@ def pr_merge(repo, number, timeout_s=900):
                             "operator to review and merge, and the PR says so."),
                 "repo": slug, "number": number, "url": pr["html_url"], "limits": hits}
     w = pr_watch(n, number, timeout_s)
+    if w.get("not_passed") or (slug in REQUIRED_CHECKS and w["ci"] != "green"):
+        names = ", ".join(w.get("not_passed") or REQUIRED_CHECKS[slug])
+        return {"refused": f"{slug}'s required check ({names}) hasn't passed on PR #{number} (CI is {w['ci']}); "
+                           "not merged. Fix what it reports, push, and merge again.",
+                "repo": slug, "number": number, "runs": w["runs"], "url": pr["html_url"]}
     if w["ci"] in ("red", "pending"):
         return {"refused": f"CI on PR #{number} is {w['ci']}; not merged", "repo": slug, "number": number,
                 "runs": w["runs"], "url": pr["html_url"]}
