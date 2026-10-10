@@ -264,6 +264,8 @@ from .briefing import briefing_now, quiet  # noqa: E402
 from .nolgia import nolgia_catalog, nolgia_credits, nolgia_generate, nolgia_read, nolgia_review  # noqa: E402
 from .create import create, make_hologram  # noqa: E402
 from .lab import lab_console, lab_job_cancel, lab_job_submit, lab_jobs  # noqa: E402
+from .tv import (tv_channels, tv_channel_add_item, tv_channel_remove_item, tv_channel_create,
+                 tv_tune, tv_channel_delete)
 from .media import (media_delete, media_get, media_language, media_recent, media_search, media_status,  # noqa: E402
                     media_upcoming)
 from .browser import (browser_back, browser_click, browser_close, browser_find, browser_look,  # noqa: E402
@@ -727,6 +729,22 @@ SPECS = {
                        _p({"kind": S, "preset": S, "prompt": S, "text": S, "inputs": {"type": "array", "items": S},
                            "voice": S, "name": S, "aspect": S, "wait": I})),
     "lab_job_cancel": ("Cancel one of your own lab jobs by id (Sir's jobs are his to cancel).", _p({"job": S}, ["job"])),
+    "tv_channels": ("Read den TV channels: their picked shows and items, libraries, YouTube or folders, order, "
+                    "bumpers, screens, now and next.", _p({}, [])),
+    "tv_channel_add_item": ("On the operator's request, add a show, movie, YouTube URL or music title to a picked "
+                    "den TV channel. Library channels already include their library. Music can use music:album:TITLE.",
+                    _p({"channel": S, "title": S, "kind": S}, ["channel", "title"])),
+    "tv_channel_remove_item": ("Remove one pick from a den TV channel on request. Its media files stay.",
+                    _p({"channel": S, "title": S}, ["channel", "title"])),
+    "tv_channel_create": ("On request, create a den TV channel of picked shows/items, a library, YouTube or a folder. "
+                    "order: shuffle, in-order or alternate. No session restart.",
+                    _p({"name": S, "shows": {"type":"array","items":S}, "items": {"type":"array","items":S}, "library": S, "youtube": S, "folder": S,
+                        "order": S, "bumpers": B}, ["name"])),
+    "tv_tune": ("Tune a named den TV channel on screen big, wave (scope) or emblem (small).",
+                    _p({"channel": S, "screen": S}, ["channel"])),
+    "tv_channel_delete": ("Remove a whole den TV channel. First returns the plan. confirm=true works only when "
+                    "the operator's latest words explicitly request deletion and name that channel. Files stay.",
+                    _p({"channel": S, "confirm": B}, ["channel"])),
     "media_search": ("Find a film, TV show, anime or music on the homelab's media stack (Seerr, Sonarr, Radarr, "
                      "Lidarr): year, kind, release dates (unreleased: 'in cinemas 2026-12-18, digital TBA'), the "
                      "quality profile it would get and why, the estimated size, and whether it's already in Jellyfin "
@@ -927,6 +945,7 @@ def _plugin_tools():
 def _needs():
     import shutil
     from . import act, build, nolgia, reach, vault
+    from . import tv as tv_mod
     from . import claude as claude_mod
     from . import create as create_mod
     from . import lab as lab_mod
@@ -955,6 +974,8 @@ def _needs():
         **{n: lab_mod.available() and _media_lab(H) for n in ("media_search", "media_get", "media_status",
                                                                "media_upcoming", "media_recent", "media_language",
                                                                "media_delete")},
+        **{n: tv_mod.available() for n in ('tv_channels','tv_channel_add_item','tv_channel_remove_item',
+                                         'tv_channel_create','tv_tune','tv_channel_delete')},
         # Claude Code's records: there is a ~/.claude/projects to read
         **{n: os.path.isdir(os.path.join(claude_mod.root(), "projects")) for n in (
             "claude_sessions", "claude_read", "claude_search", "claude_memory", "claude_logs", "claude_say_latest",
@@ -1066,7 +1087,7 @@ WHILE_OFF = frozenset({
     "vault_list", "ci_watch", "argocd_wait", "nolgia_catalog", "nolgia_credits", "nolgia_read", "lab_console",
     "lab_jobs", "build_status", "build_stop", "load_skill", "my_setup", "look", "read_screen_text",
     "snapshot_list", "briefing_now", "time_now", "calendar_month", "quiet", "shell_off", "browser_close",
-    "media_search", "media_status", "media_upcoming", "media_recent",
+    "media_search", "media_status", "media_upcoming", "media_recent", "tv_channels",
     "claude_sessions", "claude_read", "claude_search", "claude_memory", "claude_logs", "claude_say_latest",
 })
 

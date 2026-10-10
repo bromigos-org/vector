@@ -44,6 +44,13 @@ jobs:
       - name: Media requests (his tools and his terminal's limits)
         run: python3 tools/test-media.py
 
+      - uses: actions/checkout@v5
+        with:
+          repository: bromigos-org/bromigOS
+          path: .bromigos-test
+      - name: Den TV tools (sandbox config and shared channel library)
+        run: python3 tools/test-tv-channels.py --bromigos .bromigos-test
+
       - name: Claude Code's records (read only, redacted, follow mode)
         run: python3 tools/test-claude.py
 

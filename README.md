@@ -11,6 +11,7 @@ machine with tools.
 He can:
 
 - launch programs, manage windows and control what's playing
+- read den TV channels, change their picks and tune the screens ([tools](docs/tools.md#den-tv-channels))
 - read your machine, your homelab and your repositories
 - browse the web in a browser of his own
 - look at your screen when you ask

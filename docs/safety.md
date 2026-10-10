@@ -575,3 +575,11 @@ All of these are under `~/.local/state/bromigos/`.
 | `tools/test-claude.py` | Claude Code's records: read only, the allowlist, the redactor against every token shape, follow mode, what the phone gets |
 
 [development.md](development.md#tests) says how to run them, and which ones act for real.
+
+## Den TV channels
+
+Den TV tools use bromigOS's shared channel writer and the same audit gate as other tools.
+Removing one pick never deletes its media files. A whole-channel delete needs your
+latest words to ask for deletion and name that channel; `confirm=true` alone is refused.
+The terminal cannot bypass that check with `bromigos-live tv channel remove`.
+The phone receives read and individual pick tools only.

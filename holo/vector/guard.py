@@ -65,7 +65,7 @@ HOLO_FILES = ["holo/vector/" + f for f in (
     "holo/vector/switch.py", "tools/test-switch.py",         # the operator's emergency switch
     "holo/vector/devflow.py", "tools/test-devflow.py",       # his clones and PRs: the merge refusal (LIMITS)
     "holo/vector/claude.py", "holo/vector/redact.py",        # Claude Code's records: read only, redacted
-    "tools/test-claude.py"]
+    "tools/test-claude.py", "holo/vector/tv.py", "tools/test-tv-channels.py"]
 # The same, and the rest, as paths in the dotfiles (the build loop's diffs are dotfiles paths).
 PROTECTED = [HOLO + f for f in HOLO_FILES] + [
     "linux/.config/bromigos/widgets/plugins.py", "linux/.config/bromigos-live/live/plugins.py",
@@ -262,6 +262,9 @@ def _lab_switch(words):
     where his work runs or what it costs; None for the reads and for his own tools' way in."""
     for i, w in enumerate(words):
         b = os.path.basename(w)
+        if (b == "bromigos-live" and words[i+1:i+4] == ['tv','channel','remove']) or \
+           (b in ('bromigos_tvchannels', 'bromigos_tvchannels.py') and words[i+1:i+3] == ['channel','remove']):
+            return "Whole TV channels are deleted only through tv_channel_delete, on the operator's explicit words"
         if b == "bromigos" and words[i + 1:i + 2] == ["lab"]:
             rest = words[i + 2:]
         elif b == "bromigos-lab":
@@ -299,6 +302,8 @@ def _lab_switch(words):
             continue
         if verb == "media":
             sub = args[1] if len(args) > 1 else "status"
+            if sub == "channel" and len(args) > 2 and args[2] in ("list", "add", "remove"):
+                continue  # these change only channel picks, never delete media or a whole channel
             if sub in LAB_MEDIA_READS or (sub == "language" and (len(args) == 2 or args[2] == "show")):
                 continue
             return ("media requests, deletes, monitoring and language changes go through the media_get, "

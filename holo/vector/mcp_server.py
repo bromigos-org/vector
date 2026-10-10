@@ -26,12 +26,12 @@ from holo.vector import tools  # noqa: E402
 READ_ONLY = ["system_stats", "lab_status", "k8s_get", "k8s_logs", "k8s_events", "argocd_apps", "prometheus_query",
              "lab_vault_status",
              "github", "gnosis_search", "knowledge_search", "web_search", "web_fetch", "docs_search", "docs_read", "notes_read", "time_now", "calendar_month",
-             "media_search", "media_status", "media_upcoming", "media_recent",
+             "media_search", "media_status", "media_upcoming", "media_recent", "tv_channels",
              "claude_sessions", "claude_search"]
 # Claude Code off the desktop: its sessions and a search, and claude_read as the latest view
 # only (CLAUDE_LATEST: a fixed signature, latest=True, no tool output). Never here: its memory
 # files and logs (claude_memory, claude_logs), reading aloud and follow mode.
-DESKTOP_ONLY = {"claude_memory", "claude_logs", "claude_say_latest", "claude_follow"}
+DESKTOP_ONLY = {"tv_channel_create", "tv_tune", "tv_channel_delete","claude_memory", "claude_logs", "claude_say_latest", "claude_follow"}
 
 
 # Desktop-local actions for VECTOR's brain on Hermes (served on the LAN by mcp_lan.py).
@@ -46,7 +46,7 @@ ACT = ["k8s_restart", "k8s_scale", "k8s_delete_pod", "k8s_run_job", "argocd_sync
        "open_path", "windows", "window", "changes_check", "github_repo_create", "nolgia_catalog", "nolgia_credits",
        "nolgia_read", "nolgia_generate", "nolgia_review", "look", "read_screen_text", "active_window",
        "conversation_history", "my_setup", "load_skill", "hologram_deck", "snapshot_create", "snapshot_list",
-       "snapshot_undo", "briefing_now", "quiet", "media_get", "media_language"]
+       "snapshot_undo", "briefing_now", "quiet", "media_get", "media_language", "tv_channel_add_item", "tv_channel_remove_item"]
 DESTRUCTIVE = {"k8s_delete_pod", "window", "vault_put", "vault_copy", "github_repo_create", "run_detached"}
 READ_ALSO = {"vault_list", "app_search", "windows", "changes_check", "nolgia_catalog", "nolgia_credits", "nolgia_read",
              "nolgia_review", "look", "read_screen_text", "active_window", "conversation_history", "my_setup",

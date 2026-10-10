@@ -46,6 +46,30 @@ you set up?" (`my_setup`) to see what's on and why.
 | `quiet` | Silences alerts and briefs for a while |
 | `briefing_now` | Gathers the facts for a brief now (needs a homelab) |
 
+## Den TV channels
+
+The den is the wallpaper's radio room. Its screens play channels you choose.
+These tools share bromigOS's channel library with Den TV, `bromigos media` and the CLI.
+Each call is audited. Changes preserve comments and dotfiles links and appear without a
+session restart.
+
+| Tool | What it does |
+|---|---|
+| `tv_channels` | Lists channels, contents, order, bumpers, screens and now/next |
+| `tv_channel_add_item` | Adds a show, movie, YouTube URL or music pick to a picked channel |
+| `tv_channel_remove_item` | Removes a pick. Its media files stay |
+| `tv_channel_create` | Creates a picked, library, YouTube or folder channel |
+| `tv_tune` | Tunes a named channel on the big monitor, scope or small monitor |
+| `tv_channel_delete` | Removes a whole channel only after your latest request names it |
+
+Ask "Add this show to Night Block", "What's on the den TV?", or "Tune the scope to
+Night Block". Library channels already contain everything in their library. Music is
+played from Jellyfin or Plex; an album can be named as `music:album:Album title`.
+
+The phone gets `tv_channels` and the two individual pick tools. Creating channels,
+tuning screens and deleting whole channels stay on the desktop. A whole-channel delete
+needs both `confirm=true` and your own latest words asking for deletion and naming it.
+
 ## The web
 
 | Tool | What it does |
