@@ -71,6 +71,8 @@ for f in ("holo/vector/switch.py", "holo/vector/guard.py", "holo/vector/shell.py
           ".github/workflows/tests.yml", ".github/CODEOWNERS", "tools/test-switch.py", "lib/privacy_guard.py"):
     ok(devflow.touches_limits(V, ["docs/safety.md", f]) == [f], f"LIMITS: {f} is the operator's")
 ok(devflow.touches_limits(V, ["docs/safety.md", "README.md", "skills/x.md"]) == [], "LIMITS: docs and skills are his")
+ok("GH_TOKEN_BROMIGODEV_DOTFILES" in devflow.credential("dotfiles") and "_DOTFILES" not in devflow.credential("vector"),
+   "credentials: the operator's dotfiles use his public_repo token, the org's repos his fine-grained one")
 ok(devflow.touches_limits("bromigos-org/homelab", ["helm/ledger/templates/live.yaml"]) != [],
    "LIMITS: a real-money workload from vector.toml (the made-up ledger's)")
 ok(devflow.touches_limits("example-org/ledger", ["README.md"]) == ["README.md"],

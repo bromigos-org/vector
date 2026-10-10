@@ -218,15 +218,22 @@ def _dirty(name):
     return [line for line in _sh(name, "git status --porcelain=v1 --untracked-files=all").splitlines() if line.strip()]
 
 
-CREDENTIAL = '!f() { test "$1" = get || exit 0; test -n "$' + TOKEN_ENV + '" || exit 0; echo username=' + ACCOUNT + \
-             '; echo "password=$' + TOKEN_ENV + '"; }; f'
+def credential(name):
+    """git's credential helper for a clone: his account's token, or for the operator's dotfiles
+    (another owner's repo, which his fine-grained token can't reach) his public_repo token."""
+    env = TOKEN_ENV + ("_DOTFILES" if REPOS.get(name) == "blackflame007/.dotfiles" else "")
+    return ('!f() { test "$1" = get || exit 0; test -n "$' + env + '" || exit 0; echo username=' + ACCOUNT +
+            '; echo "password=$' + env + '"; }; f')
+
+
+CREDENTIAL = credential("vector")
 
 
 def _configure(name):
     """His identity and credentials in a clone (re-set every time, so they can't drift)."""
     who, email = identity()
     cmds = [f"git config user.name {_q(who)}", f"git config user.email {_q(email)}",
-            "git config --replace-all credential.helper ''", f"git config --add credential.helper {_q(CREDENTIAL)}",
+            "git config --replace-all credential.helper ''", f"git config --add credential.helper {_q(credential(name))}",
             "git config push.autoSetupRemote true", "git config pull.rebase true"]
     if REPOS[name] == "blackflame007/.dotfiles":
         cmds.append("git config core.hooksPath .githooks")   # the privacy guard before every commit
@@ -239,7 +246,7 @@ def _clone(name):
     slug = REPOS[name]
     cmd = ("git clone -q --filter=blob:none --no-recurse-submodules "
            f"-c user.name={_q(who)} -c user.email={_q(email)} -c credential.helper= "
-           f"-c credential.helper={_q(CREDENTIAL)} https://github.com/{slug}.git {_q(name)}")
+           f"-c credential.helper={_q(credential(name))} https://github.com/{slug}.git {_q(name)}")
     _sh(WORK, cmd, timeout=600)
     _configure(name)
     return {"repo": slug, "cloned": True, "path": _dir(name).replace(HOME, "~"), "branch": _default(name)}

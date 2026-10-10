@@ -422,10 +422,16 @@ He works in clones of his own, in `~/.local/share/bromigos/vector/work/`. There'
 for his own code, bromigOS, the homelab repository, the extensions catalog and your
 dotfiles. Your checkouts under `~/github.com` stay read-only to him.
 
-In his clones he uses his own GitHub account, bromigodev. Its token is the field
-`github_token_bromigodev` of his own Vault credentials. It reaches his sandbox the same way
-as his other GitHub tokens, and it's never printed. His commits carry bromigodev's
-`noreply` address.
+In his clones he uses his own GitHub account, bromigodev, with two tokens from his own Vault
+credentials:
+
+- `github_token_bromigodev`: a fine-grained token for bromigos-org's bromigOS, vector,
+  homelab and extensions. It can push code and open pull requests there, and nothing else.
+- `github_token_bromigodev_dotfiles`: a classic token with only `public_repo`, for your
+  dotfiles. They belong to another account, which a fine-grained token can't reach.
+
+Both reach his sandbox the same way as his other GitHub tokens, and neither is ever printed.
+His commits carry bromigodev's `noreply` address.
 
 His tools (`holo/vector/devflow.py`) run every git command through his terminal, so the
 sandbox and every refusal apply to them:

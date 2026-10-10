@@ -286,6 +286,8 @@ def _ssh_etc():
 
 GH_OWNERS = ("bromigos-org", "nolgiainc", "blackflame007")   # a fine-grained token covers one owner each
 GH_DEV = "bromigodev"          # his own GitHub account: git and gh in his clones (devflow.py) use it
+DOTFILES_SLUG = "blackflame007/.dotfiles"   # not bromigos-org's: his fine-grained token can't reach it, so a
+                                            # classic public_repo token (github_token_bromigodev_dotfiles) does
 
 
 def _gh_var(owner):
@@ -338,6 +340,9 @@ tok = (os.environ.get(var(owner)) if owner else None) or os.environ.get("GH_TOKE
 WORK = {repr(os.path.join(HOME, ".local/share/bromigos/vector/work"))}
 if (os.getcwd() == WORK or os.getcwd().startswith(WORK + "/")) and os.environ.get(var({repr(GH_DEV)})):
     tok = os.environ[var({repr(GH_DEV)})]        # in his clones: his own account
+if (os.getcwd() == WORK or os.getcwd().startswith(WORK + "/")) and slug == {repr(DOTFILES_SLUG)} \
+        and os.environ.get(var({repr(GH_DEV + "_dotfiles")})):
+    tok = os.environ[var({repr(GH_DEV + "_dotfiles")})]   # another owner's repo: his public_repo token
 if not tok and not owner:                          # no repo in sight (gh api user, gh search): any of his own
     tok = next((os.environ[var(o)] for o in reversed(OWNERS) if os.environ.get(var(o))), None)
 field = ("github_token_" + owner + " (or github_token)") if owner else "github_token"
@@ -379,7 +384,7 @@ def sandbox_env(env):
     tok = _own("github_token")
     if tok:
         env["GH_TOKEN"] = tok
-    for name in GH_OWNERS + (GH_DEV,):
+    for name in GH_OWNERS + (GH_DEV, GH_DEV + "_dotfiles"):
         t = _own("github_token_" + name)
         if t:
             env[_gh_var(name)] = t
