@@ -39,6 +39,10 @@ on:
         type: choice
         options: [edge, rc, stable]
         default: edge
+      mirror_only:
+        description: "Build nothing: only bring the public mirror (GCS) up to date with the channel"
+        type: boolean
+        default: false
 
 # One publisher at a time per channel: each run reads, extends and rewrites the channel's db
 # ... per channel: a tag's stable/rc publish must not be queued behind (or cancelled by: a
@@ -93,6 +97,11 @@ jobs:
           PKGS_S3_SECRET_ACCESS_KEY: ${{ secrets.PKGS_S3_SECRET_ACCESS_KEY }}
           PKGS_GPG_PRIVATE_KEY: ${{ secrets.PKGS_GPG_PRIVATE_KEY }}
           PKGS_GPG_PASSPHRASE: ${{ secrets.PKGS_GPG_PASSPHRASE }}
+          # the public mirror (packaging/README.md, "The public mirror"); unset, publish.sh skips it
+          PKGS_GCS_BUCKET: ${{ secrets.PKGS_GCS_BUCKET }}
+          PKGS_GCS_ACCESS_KEY_ID: ${{ secrets.PKGS_GCS_ACCESS_KEY_ID }}
+          PKGS_GCS_SECRET_ACCESS_KEY: ${{ secrets.PKGS_GCS_SECRET_ACCESS_KEY }}
+          PKGS_MIRROR_ONLY: ${{ inputs.mirror_only && '1' || '0' }}
           PKGS_KEEP: "3"
           PKGS_REBUILD: ${{ inputs.rebuild && '1' || '0' }}
           PKGS_ONLY: ${{ inputs.only }}
@@ -101,5 +110,5 @@ jobs:
         # publish.sh through its environment, never its command line.
         run: >-
           sudo -u builder
-          --preserve-env=PKGS_S3_ENDPOINT,PKGS_S3_BUCKET,PKGS_S3_ACCESS_KEY_ID,PKGS_S3_SECRET_ACCESS_KEY,PKGS_GPG_PRIVATE_KEY,PKGS_GPG_PASSPHRASE,PKGS_KEEP,PKGS_REBUILD,PKGS_ONLY,PKGS_CHANNEL
+          --preserve-env=PKGS_S3_ENDPOINT,PKGS_S3_BUCKET,PKGS_S3_ACCESS_KEY_ID,PKGS_S3_SECRET_ACCESS_KEY,PKGS_GPG_PRIVATE_KEY,PKGS_GPG_PASSPHRASE,PKGS_GCS_BUCKET,PKGS_GCS_ACCESS_KEY_ID,PKGS_GCS_SECRET_ACCESS_KEY,PKGS_MIRROR_ONLY,PKGS_KEEP,PKGS_REBUILD,PKGS_ONLY,PKGS_CHANNEL
           packaging/ci/publish.sh
