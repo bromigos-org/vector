@@ -68,10 +68,10 @@ RULES = [(label, r) for label, r in G.rules() if not label.startswith("private n
 for line in ["ip 192.0.2.41/24 via 198.51.100.1, peer 203.0.113.2", "addr 2001:db8::1/64",
              "pair 00:00:5E:00:53:10", "bssid 00:00:5e:00:53:4f"]:
     check(f"documentation range passes: {line}", G.scan_lines([("t", 1, line)], RULES) == [])
-for line, label in [("ssh 192.168.1.20", "private IPv4 address"),  # privacy: allow
-                    ("pod 10.42.0.10", "private IPv4 address"),  # privacy: allow
-                    ("pair AC:80:0A:00:00:01", "MAC address"),  # privacy: allow
-                    ("pair 00:00:5E:00:54:10", "MAC address")]:  # privacy: allow
+for line, label in [("ssh 192.168.1.20", "private IPv4 address"),  # privacy: allow (a shape the rule must still catch)
+                    ("pod 10.42.0.10", "private IPv4 address"),  # privacy: allow (a shape the rule must still catch)
+                    ("pair AC:80:0A:00:00:01", "MAC address"),  # privacy: allow (a shape the rule must still catch)
+                    ("pair 00:00:5E:00:54:10", "MAC address")]:  # privacy: allow (a shape the rule must still catch)
     bad = G.scan_lines([("t", 1, line)], RULES)
     check(f"still caught: {label} in {line!r}", [b[2] for b in bad] == [label], bad)
 
