@@ -372,7 +372,7 @@ monitor or a region.
 ## Attachments
 
 You can attach files and images to a message: drop them on VECTOR, paste with Ctrl+V,
-click **+ ATTACH**, or run `bromigos-holo ask --file PATH "…"`. `holo/vector/attach.py`
+click the **paperclip** beside the box, or run `bromigos-holo ask --file PATH "…"`. `holo/vector/attach.py`
 reads them.
 
 - **Only what you attach.** He reads the files you hand him and nothing else. A folder

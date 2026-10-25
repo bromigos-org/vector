@@ -83,7 +83,7 @@ To give him a file or an image with your message, do one of these:
 
 - drop it on VECTOR or on his chat box;
 - copy an image, or a file in your file manager, and press Ctrl+V in the box;
-- click **+ ATTACH** beside the box and pick one or more files.
+- click the **paperclip** beside the box and pick one or more files.
 
 Each file shows as a chip above the box, with its name and size. Click its × to take it
 off. Enter sends the files with what you typed, and the conversation shows a line for each

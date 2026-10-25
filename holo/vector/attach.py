@@ -1,5 +1,5 @@
 """Attachments: files and images Sir hands VECTOR with a message (dropped on his window,
-pasted with Ctrl+V, picked with + ATTACH, or `bromigos-holo ask --file PATH "…"`).
+pasted with Ctrl+V, picked with the paperclip button, or `bromigos-holo ask --file PATH "…"`).
 
   from_path(path)            an Attachment for a file Sir chose; Refused for a secret
   from_image_bytes(data)     a pasted image, kept in memory only (never written to disk)

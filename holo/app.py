@@ -12,6 +12,7 @@ turn finishes, the reply is spoken (voice on) and queued for the next open, and 
 bar module (waybar custom/vector, fed by $XDG_RUNTIME_DIR/bromigos-vector.json) shows its
 state and unread count."""
 import json
+import math
 import os
 import signal
 import socket
@@ -179,9 +180,35 @@ class GrowEntry(Gtk.ScrolledWindow):
 URI_INFO = 7701                           # a drop's target info: a file list (text/uri-list)
 
 
+def paperclip(cr, button, w, h):
+    """The attach button's icon: a paperclip, stroked in the button's own text colour, so it
+    follows the theme's CSS (retint) and turns dark with the button on hover."""
+    ctx = button.get_style_context()
+    c = ctx.get_color(button.get_state_flags())
+    cr.set_source_rgba(c.red, c.green, c.blue, c.alpha)
+    cr.translate(w / 2, h / 2)
+    cr.rotate(math.pi / 4)
+    k = min(w, h) / 18.0
+    cr.scale(k, k)
+    cr.translate(0, 1)                    # the clip runs y -9.5..7.5: centre it
+    cr.move_to(1.5, 2)                    # inner wire, up to the small top turn
+    cr.line_to(1.5, -4)
+    cr.arc_negative(0, -4, 1.5, 0, -math.pi)
+    cr.line_to(-1.5, 5)                   # down to the bottom turn
+    cr.arc_negative(1, 5, 2.5, math.pi, 0)
+    cr.line_to(3.5, -6)                   # up the outside to the big top turn
+    cr.arc_negative(0, -6, 3.5, 0, -math.pi)
+    cr.line_to(-3.5, 3)
+    cr.set_line_width(1.5)
+    cr.set_line_cap(1)                    # cairo.LINE_CAP_ROUND
+    cr.set_line_join(1)                   # cairo.LINE_JOIN_ROUND
+    cr.stroke()
+    return False
+
+
 class InputBox(Gtk.Box):
     """The input box with its attachments (holo/vector/attach.py): rows of chips (name,
-    size, × to take it off) over the growing entry and + ATTACH. Files come by a drop on
+    size, × to take it off) over the growing entry and the paperclip button. Files come by a drop on
     the box (or on VECTOR: drop_target), Ctrl+V of an image or of copied files, or the
     button's file chooser; Enter sends them with the text (take()). `notice(text)` says
     what wasn't attached and why; `changed()` follows every change to the chips."""
@@ -201,7 +228,11 @@ class InputBox(Gtk.Box):
         # the pointer region is each chip, not the rows' empty ends (HoloWindow.update_input_region)
         self.chips.input_parts = lambda: [self.chip_of[id(a)] for a in self.pending]
         self.entry = GrowEntry(name="vector-entry")
-        self.attachbtn = Gtk.Button(label="+ ATTACH", name="vector-min")
+        self.attachbtn = Gtk.Button(name="vector-min")
+        clip = Gtk.DrawingArea()
+        clip.set_size_request(20, 21)
+        clip.connect("draw", lambda w, cr: paperclip(cr, self.attachbtn, w.get_allocated_width(), w.get_allocated_height()))
+        self.attachbtn.add(clip)
         self.attachbtn.set_valign(Gtk.Align.END)
         self.attachbtn.set_can_focus(False)
         self.attachbtn.set_tooltip_text(
@@ -345,7 +376,7 @@ class InputBox(Gtk.Box):
                 self.attach_image(data)
 
     def choose(self):
-        """+ ATTACH: the desktop's file chooser, several files at once."""
+        """The paperclip: the desktop's file chooser, several files at once."""
         if self.chooser is not None:
             return
         self.chooser = Gtk.FileChooserNative.new("Attach files for VECTOR", None, Gtk.FileChooserAction.OPEN,

@@ -9,7 +9,7 @@ desktop. For screenshots and tuning.
        OFF_ENTRY=N an input box grown to N px tall: the transcript ends above it;
        OFF_ATTACH=1 a message sent with attachments)
   offscreen.py vector-input OUT.png
-      the input box with attachment chips, + ATTACH and some typed text: GTK widgets, drawn
+      the input box with attachment chips, the paperclip and some typed text: GTK widgets, drawn
       by GTK's broadway backend on a private broadwayd (no display, nothing on screen);
       OFF_CHIPS=N shows N chips (0 to 5, default 3)
 
