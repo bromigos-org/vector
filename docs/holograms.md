@@ -176,3 +176,13 @@ HOME=$(mktemp -d) OFF_DEMO=1 python3 tools/offscreen.py gallery out.png wick 1
 
 Without an NVIDIA GPU, add `EGL_PLATFORM=surfaceless LIBGL_ALWAYS_SOFTWARE=1` for a
 software render.
+
+`OFF_ATTACH=1` adds a message sent with attachments to his console's conversation. His
+input box and its attachment chips are GTK widgets, not holograms. `vector-input` draws
+them with GTK's broadway backend, on a `broadwayd` of its own, so nothing reaches your
+screen. `OFF_CHIPS` sets how many chips it shows:
+
+```bash
+HOME=$(mktemp -d) OFF_DEMO=1 OFF_ATTACH=1 python3 tools/offscreen.py vector out.png
+OFF_CHIPS=5 python3 tools/offscreen.py vector-input box.png
+```

@@ -6,7 +6,12 @@ desktop. For screenshots and tuning.
   offscreen.py vector OUT.png [state] [exhibit] [t seconds]
       (env OFF_CHAT=0 folds the chat box away; OFF_CONV=1 shows conversation mode;
        OFF_LONG=1 a long conversation, OFF_SCROLL=N scrolled back N px,
-       OFF_ENTRY=N an input box grown to N px tall: the transcript ends above it)
+       OFF_ENTRY=N an input box grown to N px tall: the transcript ends above it;
+       OFF_ATTACH=1 a message sent with attachments)
+  offscreen.py vector-input OUT.png
+      the input box with attachment chips, + ATTACH and some typed text: GTK widgets, drawn
+      by GTK's broadway backend on a private broadwayd (no display, nothing on screen);
+      OFF_CHIPS=N shows N chips (0 to 5, default 3)
 
 The readings are this machine's and the lab's, live; OFF_DEMO=1 uses made-up ones instead
 (DemoLive), for anything published. The frame sits over bromigOS's packaged empty den
@@ -130,9 +135,66 @@ def save(fbo, out):
     print(out)
 
 
+def input_box(out):
+    """VECTOR's input box (holo/app.py InputBox) with three attachment chips, drawn offscreen
+    by GTK on a broadwayd of its own, over the console's dark green."""
+    import shutil
+    import subprocess
+    if os.environ.get("GDK_BACKEND") != "broadway":
+        exe = shutil.which("broadwayd")
+        if not exe:
+            sys.exit("vector-input needs broadwayd (gtk3)")
+        disp = f":{40 + os.getpid() % 50}"
+        d = subprocess.Popen([exe, disp], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        time.sleep(0.8)
+        env = {k: v for k, v in os.environ.items() if k not in ("WAYLAND_DISPLAY", "DISPLAY")}
+        env.update(GDK_BACKEND="broadway", BROADWAY_DISPLAY=disp)
+        try:
+            sys.exit(subprocess.call([sys.executable, *sys.argv], env=env))
+        finally:
+            d.terminate()
+    import gi
+    gi.require_version("Gtk", "3.0")
+    gi.require_version("Gdk", "3.0")
+    from gi.repository import Gdk, Gtk
+    from holo import app
+    from holo.render import T
+    from holo.vector import attach
+    css = Gtk.CssProvider()
+    css.load_from_data((T.retint(app.CSS.decode()) + "#vector-input-back { background-color: rgb(0, 9, 0); }").encode())
+    Gtk.StyleContext.add_provider_for_screen(Gdk.Screen.get_default(), css, Gtk.STYLE_PROVIDER_PRIORITY_USER)
+    box = app.InputBox(1180 - 540 - 14 - 30)
+    box.entry.set_text("what's wrong with this build?")
+    box.set_margin_start(16); box.set_margin_end(16); box.set_margin_top(14); box.set_margin_bottom(14)
+    win = Gtk.OffscreenWindow()
+    back = Gtk.EventBox(name="vector-input-back")    # the console's backing behind the box
+    back.add(box)
+    win.add(back)
+    win.show_all()
+    for _ in range(50):
+        Gtk.main_iteration_do(False)
+    n = int(os.environ.get("OFF_CHIPS", 3))           # chips are laid out by their styled width: added once shown
+    for a in [attach.Attachment("build-error.png", "image", 245760, path="/home/user/Pictures/build-error.png"),
+              attach.Attachment("cargo-build.log", "text", 18432, path="/home/user/wick-relay/cargo-build.log"),
+              attach.Attachment("relay-beam-specification-rev4.pdf", "pdf", 1288490, path="/home/user/relay.pdf"),
+              attach.Attachment("pasted image.png", "image", 88064, data=b""),
+              attach.Attachment("notes.md", "text", 2048, path="/home/user/notes.md")][:n]:
+        box._add(a)
+    win.check_resize()                                # an offscreen window has no frame clock to do it
+    win.queue_draw()
+    for _ in range(40):
+        while Gtk.events_pending():
+            Gtk.main_iteration_do(False)
+        time.sleep(0.01)
+    win.get_pixbuf().savev(out, "png", [], [])
+    print(out)
+
+
 def main():
     kind, out = sys.argv[1], sys.argv[2]
     args = sys.argv[3:]
+    if kind == "vector-input":
+        return input_box(out)
     egl()
     if os.environ.get("OFF_DEMO") == "1":
         live = DemoLive()
@@ -181,6 +243,14 @@ def main():
                 p.add_user(f"question {k + 1}: how is the lab doing?")
                 p.begin_reply(); p.feed(f"Answer {k + 1}. All six nodes are up and every service answers. " * 2); p.end_reply()
         p.scroll = float(os.environ.get("OFF_SCROLL", 0))              # pixels scrolled back
+        if os.environ.get("OFF_ATTACH") == "1":                        # a message with files (attach.line)
+            p.add_user("what's wrong with this build?")
+            p.add_attached("⟐ attached · build-error.png · 240 KB")
+            p.add_attached("⟐ attached · cargo-build.log · 18 KB")
+            p.begin_reply(); p.feed("The log ends in one error, sir: relay_beam isn't in scope at src/beam.rs line 42. "
+                                    "Your screenshot shows the same line. Import it from the relay module and it builds."); p.end_reply()
+            for m in p.msgs:
+                m.shown = len(m.text)
         if os.environ.get("OFF_ENTRY"):                                # the box's height + margin + gap
             p.entry_clear = float(os.environ["OFF_ENTRY"]) + 34 + 6
         p.fade = 1.0

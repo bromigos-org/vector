@@ -25,9 +25,9 @@ jobs:
       - name: Sandbox and Python packages
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y -qq bubblewrap desktop-file-utils >/dev/null
+          sudo apt-get install -y -qq bubblewrap desktop-file-utils poppler-utils >/dev/null
           sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0 || true
-          python3 -m pip install --quiet --user 'bashlex==0.18' psutil pyyaml numpy
+          python3 -m pip install --quiet --user 'bashlex==0.18' psutil pyyaml numpy pillow
 
       - name: Compile
         run: python3 -m compileall -q holo tools lib evals
@@ -53,6 +53,9 @@ jobs:
 
       - name: Claude Code's records (read only, redacted, follow mode)
         run: python3 tools/test-claude.py
+
+      - name: Attachments (never a secret, data not instructions, references only)
+        run: python3 tools/test-attach.py
 
       - name: The launcher
         run: |

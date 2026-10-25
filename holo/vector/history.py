@@ -60,7 +60,11 @@ def sessions():
                 out.append(cur)
             last = t
             if role in ("user", "vector", "pilot"):
-                cur["messages"].append({"role": "you" if role == "user" else "vector", "text": clean(d.get("text")), "t": t})
+                text = clean(d.get("text"))
+                if d.get("attachments"):           # what he was handed: a reference, never the contents
+                    from .attach import line
+                    text = "\n".join([text] * bool(text) + [line(a) for a in d["attachments"]])
+                cur["messages"].append({"role": "you" if role == "user" else "vector", "text": text, "t": t})
                 cur["end"] = t
             elif role == "tool":
                 cur["messages"].append({"role": "tool", "text": d.get("name", ""), "t": t})

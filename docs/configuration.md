@@ -169,7 +169,7 @@ a change in pitch.
 - `model`, a multimodal model on his endpoint. Empty means `vision_model` from
   `vector.toml`.
 - `max_side` and `text_max_side`, the largest image side sent for a look and for reading
-  text.
+  text. An image you attach is scaled to `max_side` too.
 - `block.classes` and `block.titles`, windows to add to the built-in capture blocklist.
 
 [safety.md](safety.md#his-eyes) explains what his eyes may and may not see.

@@ -128,6 +128,12 @@ class VectorScene:
         self._trim()
         self.scroll = 0.0                    # a new turn: back to the newest line
 
+    def add_attached(self, text):
+        """A file or image Sir sent with his message: its line (attach.line), never its contents."""
+        self.msgs.append(Msg("file", text))
+        self._trim()
+        self.scroll = 0.0
+
     def add_tool(self, text):
         self.end_reply()                 # whatever it said before the lookup is finished
         self.msgs.append(Msg("tool", text))
@@ -435,12 +441,14 @@ class VectorScene:
                 text, c, size, weight, ind = "› " + m.text, col("white", 1, 0.95 * f), 14, "medium", 0
             elif m.role == "tool":
                 text, c, size, weight, ind = "⟐ " + m.text, col("dim", 1.5, 0.95 * f), 12, "normal", 14
+            elif m.role == "file":           # under Sir's words, in his colour: what he handed over
+                text, c, size, weight, ind = m.text, col("white", 1, 0.7 * f), 12, "normal", 14
             elif m.role == "route":
                 text, c, size, weight, ind = "↻ " + m.text, col("amber", 0.9, 0.95 * f), 12, "normal", 14
             else:
                 text, c, size, weight, ind = m.text, col("amber", 1, f), 13, "normal", 0
             tw_, th_ = H.measure(text, int(size * sc), weight, width=(width - ind * sc) / sc)
-            y -= th_ + (10 if m.role != "tool" else 4) * sc
+            y -= th_ + (10 if m.role not in ("tool", "file") else 4) * sc
             if y < top:
                 reached_oldest = False
                 break

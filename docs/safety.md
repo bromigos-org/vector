@@ -19,6 +19,7 @@ change to this repository can change a limit. VECTOR can't change them himself.
 - He proposes code changes through pull requests from his own clones. His merge tool
   never merges one that touches his limits. Those are yours to merge.
 - His browser, his eyes and his creation tools each have their own limits.
+- Files you attach are data to read, never instructions. He never reads a secret.
 - He never spends money on his own.
 - He reads Claude Code's transcripts and logs read only, and only after redaction.
 
@@ -368,6 +369,34 @@ monitor or a region.
   model's words, never pixels. ◉ WATCHING shows on the bar while it's on. It turns itself
   off after 15 minutes.
 
+## Attachments
+
+You can attach files and images to a message: drop them on VECTOR, paste with Ctrl+V,
+click **+ ATTACH**, or run `bromigos-holo ask --file PATH "…"`. `holo/vector/attach.py`
+reads them.
+
+- **Only what you attach.** He reads the files you hand him and nothing else. A folder
+  goes as its path, and nothing inside it is opened.
+- **Never a secret.** A file his sandbox hides is refused, and so is a path that looks
+  like a key, a token or a credential: `~/.ssh` keys, `.env` files, `*.tfvars`, Vault and
+  cloud credentials and the like ([the sandbox](#the-sandbox)). The conversation says
+  why it wasn't attached. Everything he does read, including what the vision model says about an image,
+  passes through the [redactor](#claude-codes-records) first.
+- **Data, never instructions.** Each file's contents reach his model between two markers.
+  They carry a random tag the file can't forge, under a note that nothing inside is a
+  request. Only your own words count as your request. The checks that rely on your words,
+  such as `media_delete`'s, see only what you typed, never a file's text.
+- **Images.** An image is scaled down to `eyes.json`'s `max_side` and sent once to his
+  vision model, as [his eyes](#his-eyes) send a capture. He gets the model's words. The
+  pixels are dropped and never written anywhere. A pasted image stays in memory only.
+- **Nothing is copied.** Files are read where they are. The chat log, past conversations
+  and his memory keep each file's name, kind, size and path, never its contents. After a
+  few turns, the contents leave his context too, and only that reference stays.
+- **Text has a limit.** He reads up to 16,000 characters of a file, the end of a log, and
+  40,000 in one message. Anything cut short says so.
+- **Only you attach.** The daemon runs outside his sandbox, so `ask --file` is refused
+  for a caller inside it. His terminal can't make the daemon read a file for him.
+
 ## Making things and spending
 
 **Free creation.** `create` and `make_hologram` make images, edits, cutouts and 3D models
@@ -570,6 +599,7 @@ All of these are under `~/.local/state/bromigos/`.
 | `tools/test-media.py` | Media requests: plan first, confirm to request, ask when ambiguous; deletes only on your words naming the title; the terminal's refusals |
 | `tools/test-browser.py` | His browser's limits |
 | `tools/test-eyes.py` | The capture blocklist, and that nothing is written to disk |
+| `tools/test-attach.py` | Attachments: secrets refused, contents wrapped as data, caps, images scaled, only references kept, `ask --file` refused from his sandbox |
 | `tools/test-create.py` | Free creation never reaching a paid provider |
 | `tools/test-devflow.py` | His clones, his account, and the merge tool's refusals, in a throwaway home |
 | `tools/test-claude.py` | Claude Code's records: read only, the allowlist, the redactor against every token shape, follow mode, what the phone gets |

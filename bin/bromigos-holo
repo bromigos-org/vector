@@ -5,6 +5,7 @@
 #
 #   bromigos-holo vector             show / minimize VECTOR (typed)
 #   bromigos-holo ask "question"     ask VECTOR without typing in the window
+#   bromigos-holo ask --file PATH [--file PATH …] "question"   ... with files or images attached
 #   bromigos-holo gallery [model]    open / close the hologram gallery
 #   bromigos-holo vector-show | gallery-show   show him / open the gallery, never a toggle (the app launcher's entries)
 #   bromigos-holo ptt on|off         push-to-talk (bound to SUPER+V press / release)
@@ -205,7 +206,35 @@ case "${1:-status}" in
             log) guard_log "${3:-30}" ;;
             *) echo "bromigos-holo guard log [N]"; exit 2 ;;
         esac ;;
-    vector|gallery|ask|ptt|voice|conversation|chat|history|vector-show|vector-hide|gallery-show|gallery-hide|gallery-do|snap|claude)
+    ask)
+        case "${2:-}" in
+            -f|--file|--file=*)
+                # the files go as absolute paths, in JSON (a path may hold spaces); the daemon
+                # reads them only for a caller outside VECTOR's own sandbox
+                req="$("$PY" - "${@:2}" <<'EOF'
+import json, os, sys
+args, files = sys.argv[1:], []
+while args and (args[0] in ("-f", "--file") or args[0].startswith("--file=")):
+    if args[0].startswith("--file="):
+        files.append(args[0][7:]); args = args[1:]
+    elif len(args) > 1:
+        files.append(args[1]); args = args[2:]
+    else:
+        sys.exit("bromigos-holo ask --file PATH [--file PATH …] \"question\"")
+files = [os.path.abspath(os.path.expanduser(f)) for f in files]
+for f in files:
+    if not os.path.exists(f):
+        sys.exit(f"bromigos-holo: no such file: {f}")
+req = "ask-files " + json.dumps({"text": " ".join(args), "files": files})
+if len(req.encode()) > 4000:              # the daemon reads one 4 KB command
+    sys.exit("bromigos-holo: too many files, or too long a question, for one message")
+print(req)
+EOF
+)" || exit 2
+                start && send "$req" ;;
+            *) start && send "$@" ;;
+        esac ;;
+    vector|gallery|ptt|voice|conversation|chat|history|vector-show|vector-hide|gallery-show|gallery-hide|gallery-do|snap|claude)
         start && send "$@" ;;
     status) send status || echo "not running" ;;
     stop|restart)

@@ -124,6 +124,7 @@ class PaiBrain:
         self.model = None
         self.memory = None
         self.recalled = []
+        self.attached = {}         # a prompt with attachments -> its reference, for when it ages out
         self.cooled = {}
         self.cancel = threading.Event()
         self.lock = threading.Lock()
@@ -210,12 +211,13 @@ class PaiBrain:
             self.cb.reroute(nxt, f"{name} {why}")
 
     # ------------------------------------------------------------------ public
-    def ask(self, text):
+    def ask(self, text, attachments=None):
+        """attachments: attach.Attachment list (files and images Sir handed him with it)."""
         if self.busy:
             self.interrupt()
             time.sleep(0.05)
         self.cancel.clear()
-        self.task = asyncio.run_coroutine_threadsafe(self._run(text), self.loop)
+        self.task = asyncio.run_coroutine_threadsafe(self._run(text, attachments or []), self.loop)
 
     def interrupt(self):
         """Barge-in: cancel the run (the stream, and any tool not yet started), and stop a
@@ -230,6 +232,7 @@ class PaiBrain:
     def reset(self):
         self.history.clear()
         self.messages.clear()
+        self.attached.clear()
         self._log({"role": "session_start"})
 
     def load_turns(self, turns):
@@ -238,6 +241,16 @@ class PaiBrain:
         for u, v in turns:
             self.history += [{"role": "user", "content": u}, {"role": "assistant", "content": v}]
             self.messages += [ModelRequest(parts=[UserPromptPart(u)]), ModelResponse(parts=[TextPart(v or "…")])]
+
+    def _age_attachments(self):
+        """An attachment's contents stay in view for a few turns, then only its reference."""
+        for m in self.messages[:-8]:
+            for p in getattr(m, "parts", ()):
+                if isinstance(p, UserPromptPart) and isinstance(p.content, str) and p.content in self.attached:
+                    p.content = self.attached.pop(p.content) + "\n(read earlier; its contents are no longer in view)"
+        shown = {p.content for m in self.messages for p in getattr(m, "parts", ()) if isinstance(p, UserPromptPart)
+                 and isinstance(p.content, str)}
+        self.attached = {k: v for k, v in self.attached.items() if k in shown}
 
     def _log(self, rec):
         os.makedirs(os.path.dirname(CHATLOG), exist_ok=True)
@@ -290,7 +303,7 @@ class PaiBrain:
         msgs = result.all_messages() if result is not None else None
         return text, msgs, False
 
-    async def _run(self, text):
+    async def _run(self, text, attachments=()):
         self._build_agents()
         self.busy = True
         t0 = time.monotonic()
@@ -302,12 +315,13 @@ class PaiBrain:
             self.cb.state("thinking")
             self.recalled = []
             if self.memory is not None:            # capped at 0.2 s; skipped gracefully
-                self.recalled, rs = await asyncio.to_thread(self.memory.recall, text)
+                self.recalled, rs = await asyncio.to_thread(self.memory.recall,
+                                                            text or " ".join(a.name for a in attachments))
                 self.stats.update(rs)
                 if self.recalled and hasattr(self.cb, "memory"):
                     self.cb.memory("recall", len(self.recalled))
             self.question = text
-            self.matched = await asyncio.to_thread(self.router.match, text)
+            self.matched = await asyncio.to_thread(self.router.match, text) if text.strip() else []
             for score, sk in self.matched:
                 self._log({"role": "skill", "name": sk["name"], "auto": round(score, 2)})
                 from . import events
@@ -316,26 +330,35 @@ class PaiBrain:
             nolgia.LAST_USER["t"] = time.time()      # an over-cap spend needs a host turn after VECTOR asked
             from . import build
             build.LAST_USER["t"] = time.time()       # so does keeping a trial
-            tools.LAST_USER_TEXT["text"] = text      # shell_off checks the host asked for it
+            tools.LAST_USER_TEXT["text"] = text      # shell_off checks the host asked for it (his words, never an attachment's)
             tools.new_turn()                         # a block earlier stops tools only within its own turn
-            self._log({"role": "user", "text": text})
-            self.history.append({"role": "user", "content": text})
-            out, msgs, escalated = await self._stream(self.voice_agent, text, t0, list(self.messages))
+            prompt = text
+            if attachments:      # the model reads them (attach.py); the log, history and memory keep a reference
+                from . import attach
+                self._log({"role": "user", "text": text, "attachments": attach.refs(attachments)})
+                self.history.append({"role": "user", "content": attach.with_refs(text, attachments)})
+                prompt = await asyncio.to_thread(attach.compose, text, attachments)
+                self.attached[prompt] = attach.with_refs(text, attachments)
+            else:
+                self._log({"role": "user", "text": text})
+                self.history.append({"role": "user", "content": text})
+            out, msgs, escalated = await self._stream(self.voice_agent, prompt, t0, list(self.messages))
             if escalated and not self.cancel.is_set():
                 self.lane = "deep"
                 self.stats["lane"] = "deep"
                 if hasattr(self.cb, "ack"):
                     self.cb.ack(ACKS[int(time.time()) % len(ACKS)])
-                out2, msgs, _ = await self._stream(self.deep_agent, text, t0, list(self.messages))
+                out2, msgs, _ = await self._stream(self.deep_agent, prompt, t0, list(self.messages))
                 out = (out + " " + out2).strip()
             if self.cancel.is_set():
                 self._log({"role": "interrupted", "text": out[:300]})
                 self.history.append({"role": "assistant", "content": (out + " …").strip()})
-                self.messages += [ModelRequest(parts=[UserPromptPart(text)]),
+                self.messages += [ModelRequest(parts=[UserPromptPart(prompt)]),
                                   ModelResponse(parts=[TextPart((out + " …").strip() or "…")])]
                 return
             if msgs:
                 self.messages = msgs[-40:]
+                self._age_attachments()
             from .text import MOOD, scrub, tag_untagged
             out = scrub(tag_untagged(out))           # never the host's callsign, whatever the model wrote                  # the transcript and log say what the voice did
             tm = getattr(self, "turn_mood", None)

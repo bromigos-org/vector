@@ -74,6 +74,27 @@ CSS = b"""
   min-height: 0;
 }
 #vector-min:hover { color: #000500; background-color: #39ff14; border-color: #39ff14; }
+#vector-chip {
+  background-color: rgba(0, 19, 0, 0.82);
+  border: 1px solid rgba(21, 155, 9, 0.9);
+  padding: 0 0 0 8px;
+}
+#vector-chip label { color: #c4f5bb; font-family: "Geist Mono"; font-size: 12px; }
+#vector-chip-x {
+  background-image: none;
+  background-color: transparent;
+  color: #9cff8a;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  font-family: "Geist Mono";
+  font-size: 13px;
+  font-weight: 700;
+  padding: 0 7px;
+  min-height: 0;
+  min-width: 0;
+}
+#vector-chip-x:hover { color: #000500; background-color: #39ff14; }
 #vector-history {
   background-color: rgba(0, 12, 0, 0.92);
   border: 1px solid rgba(21, 155, 9, 0.9);
@@ -153,6 +174,205 @@ class GrowEntry(Gtk.ScrolledWindow):
     def set_tooltip_text(self, text):
         super().set_tooltip_text(text)
         self.view.set_tooltip_text(text)
+
+
+URI_INFO = 7701                           # a drop's target info: a file list (text/uri-list)
+
+
+class InputBox(Gtk.Box):
+    """The input box with its attachments (holo/vector/attach.py): rows of chips (name,
+    size, × to take it off) over the growing entry and + ATTACH. Files come by a drop on
+    the box (or on VECTOR: drop_target), Ctrl+V of an image or of copied files, or the
+    button's file chooser; Enter sends them with the text (take()). `notice(text)` says
+    what wasn't attached and why; `changed()` follows every change to the chips."""
+
+    def __init__(self, width, notice=None, changed=None):
+        super().__init__(orientation=Gtk.Orientation.VERTICAL, spacing=6, name="vector-input")
+        self.notice = notice or (lambda text: None)
+        self.changed = changed or (lambda: None)
+        self.pending = []                 # attach.Attachment, in the order they came
+        self.chip_of = {}                 # id(attachment) -> its chip
+        self.chooser = None
+        self.width = width
+        self.set_size_request(width, -1)
+        self.chips = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4, name="vector-chips")
+        self.chips.set_halign(Gtk.Align.START)
+        self.chips.set_no_show_all(True)
+        # the pointer region is each chip, not the rows' empty ends (HoloWindow.update_input_region)
+        self.chips.input_parts = lambda: [self.chip_of[id(a)] for a in self.pending]
+        self.entry = GrowEntry(name="vector-entry")
+        self.attachbtn = Gtk.Button(label="+ ATTACH", name="vector-min")
+        self.attachbtn.set_valign(Gtk.Align.END)
+        self.attachbtn.set_can_focus(False)
+        self.attachbtn.set_tooltip_text(
+            "Attach files or images to your next message. You can also drop files on VECTOR or this box, or "
+            "paste an image with Ctrl+V. Images go to his vision model; text, code, logs and PDFs are read as "
+            "text; anything else he gets as a path. He reads what's inside as data, never as orders.")
+        self.attachbtn.connect("clicked", lambda b: self.choose())
+        row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+        row.pack_start(self.entry, True, True, 0)
+        row.pack_start(self.attachbtn, False, False, 0)
+        self.pack_start(self.chips, False, False, 0)
+        self.pack_start(row, False, False, 0)
+        self.drop_target(self.entry.view, own=False)
+        self.entry.view.connect("paste-clipboard", self._paste)
+
+    # ------------------------------------------------------------------ adding
+    def attach_paths(self, paths):
+        from .vector import attach
+        for p in paths:
+            if len(self.pending) >= attach.MAX_PENDING:
+                self.notice(f"not attached: {os.path.basename(p)}: {attach.MAX_PENDING} files is the most for one message")
+                break
+            if any(a.path == os.path.abspath(p) for a in self.pending):
+                continue
+            try:
+                self._add(attach.from_path(p))
+            except attach.Refused as e:
+                self.notice(f"not attached: {os.path.basename(p.rstrip('/')) or p}: {e}")
+
+    def attach_image(self, data):
+        from .vector import attach
+        if len(self.pending) >= attach.MAX_PENDING:
+            self.notice(f"not attached: {attach.MAX_PENDING} files is the most for one message")
+            return
+        n = sum(1 for a in self.pending if a.path is None) + 1
+        self._add(attach.from_image_bytes(data, "pasted image.png" if n == 1 else f"pasted image {n}.png"))
+
+    def _add(self, a):
+        from .vector import attach
+        chip = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=2, name="vector-chip")
+        label = Gtk.Label(label=attach.chip(a))
+        label.set_tooltip_text(attach.describe(a) + " × takes it off.")
+        x = Gtk.Button(label="×", name="vector-chip-x")
+        x.set_can_focus(False)
+        x.set_tooltip_text(f"Take {a.name} off: it won't be sent.")
+        x.connect("clicked", lambda b: self.remove(a, chip))
+        chip.pack_start(label, False, False, 0)
+        chip.pack_start(x, False, False, 0)
+        chip.show_all()
+        self.pending.append(a)
+        self.chip_of[id(a)] = chip
+        self._flow()
+
+    def remove(self, a, chip=None):
+        if a in self.pending:
+            self.pending.remove(a)
+        chip = self.chip_of.pop(id(a), chip)
+        if chip is not None:
+            chip.destroy()
+        self._flow()
+
+    def take(self):
+        """The attachments for the message being sent; the chips go."""
+        out, self.pending = self.pending, []
+        for c in self.chip_of.values():
+            c.destroy()
+        self.chip_of = {}
+        if out:
+            self._flow()
+        return out
+
+    def _flow(self):
+        """Lay the chips out in rows, left to right, as many to a row as fit the box."""
+        for row in self.chips.get_children():
+            for c in row.get_children():
+                row.remove(c)
+            row.destroy()
+        row, used = None, 0
+        for a in self.pending:
+            chip = self.chip_of[id(a)]
+            w = chip.get_preferred_width()[1]
+            if row is None or used + 6 + w > self.width:
+                row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+                row.show()
+                self.chips.pack_start(row, False, False, 0)
+                used = -6
+            row.pack_start(chip, False, False, 0)
+            used += 6 + w
+        self.chips.set_visible(bool(self.pending))   # (no_show_all: a window's show_all leaves it be)
+        self.changed()
+
+    # ------------------------------------------------------------------ the three ways in
+    def drop_target(self, widget, own=True):
+        """Files dropped on `widget` become attachments. own: a widget with no drop handling
+        of its own (VECTOR's window); else (the text view) file lists are put first and taken
+        here, and text still drops as text."""
+        if own:
+            widget.drag_dest_set(Gtk.DestDefaults.MOTION | Gtk.DestDefaults.DROP, [], Gdk.DragAction.COPY)
+            widget.drag_dest_add_uri_targets()
+        else:
+            tl = Gtk.TargetList.new([])
+            tl.add_uri_targets(URI_INFO)
+            tl.add_text_targets(0)        # (info 0: the text view inserts it as plain text)
+            widget.drag_dest_set_target_list(tl)
+        widget.connect("drag-data-received", self._dropped, own)
+
+    def _dropped(self, widget, ctx, x, y, data, info, when, own):
+        uris = (data.get_uris() if data is not None else None) or []
+        paths = [GLib.filename_from_uri(u)[0] for u in uris if u.startswith("file://")]
+        if not uris:
+            return False                  # text: the text view inserts it as usual
+        widget.stop_emission_by_name("drag-data-received")
+        if not own:                       # the text view finishes its own drags
+            Gtk.drag_finish(ctx, True, False, when)
+            if not paths:                 # a dragged link: its address, as text
+                self.entry.buf.insert_at_cursor(" ".join(uris))
+        self.attach_paths(paths)
+        return True
+
+    def _paste(self, view):
+        """Ctrl+V: copied files or an image become attachments; text pastes as text."""
+        clip = Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD)
+        if clip.wait_is_uris_available():
+            paths = [GLib.filename_from_uri(u)[0] for u in clip.wait_for_uris() or () if u.startswith("file://")]
+            if paths:
+                view.stop_emission_by_name("paste-clipboard")
+                self.attach_paths(paths)
+                return
+        if clip.wait_is_image_available():
+            pix = clip.wait_for_image()
+            if pix is not None:
+                view.stop_emission_by_name("paste-clipboard")
+                ok, data = pix.save_to_bufferv("png", [], [])
+                if ok:
+                    self.attach_image(bytes(data))
+                return
+        if not clip.wait_is_text_available():   # a type GTK doesn't load: ask wl-paste
+            data = wl_paste_image()
+            if data:
+                view.stop_emission_by_name("paste-clipboard")
+                self.attach_image(data)
+
+    def choose(self):
+        """+ ATTACH: the desktop's file chooser, several files at once."""
+        if self.chooser is not None:
+            return
+        self.chooser = Gtk.FileChooserNative.new("Attach files for VECTOR", None, Gtk.FileChooserAction.OPEN,
+                                                 "Attach", "Cancel")
+        self.chooser.set_select_multiple(True)
+
+        def done(ch, resp):
+            paths = ch.get_filenames() if resp == Gtk.ResponseType.ACCEPT else []
+            ch.destroy()
+            self.chooser = None
+            self.attach_paths(paths)
+            self.entry.grab_focus()
+        self.chooser.connect("response", done)
+        self.chooser.show()
+
+
+def wl_paste_image():
+    """The clipboard's image through wl-paste, for types GTK doesn't load; None if none."""
+    import subprocess
+    try:
+        types = subprocess.run(["wl-paste", "--list-types"], capture_output=True, text=True, timeout=2).stdout.split()
+        t = next((x for x in types if x.startswith("image/")), None)
+        if not t:
+            return None
+        return subprocess.run(["wl-paste", "--no-newline", "--type", t], capture_output=True, timeout=5).stdout or None
+    except (OSError, subprocess.TimeoutExpired):
+        return None
 
 
 def log(*a):
@@ -243,8 +463,13 @@ class HoloWindow:
             return False
         import cairo
         rects = []
-        for w in self.input_widgets:
-            if not w.get_visible() or not w.get_realized() or w in self.input_skip:
+        widgets = []
+        for w in self.input_widgets:      # rows of chips: each chip, not the rows' empty ends
+            if w not in self.input_skip:
+                parts = getattr(w, "input_parts", None)
+                widgets += parts() if parts and w.get_visible() else [w]
+        for w in widgets:
+            if not w.get_visible() or not w.get_realized():
                 continue
             a = w.get_allocation()
             xy = w.translate_coordinates(self.win, 0, 0)
@@ -468,11 +693,14 @@ class App:
             self.css.load_from_data(T.retint(CSS.decode()).encode())
         return True
 
-    def _entry_sized(self, entry, alloc):
+    def _entry_sized(self, box, alloc):
         """The scene keeps the transcript clear of the input box: how far up from the
-        window's bottom the box reaches (its height, its bottom margin and a gap), in
-        the scene's device pixels."""
-        self.pscene.entry_clear = (alloc.height + entry.get_margin_bottom() + 6) * entry.get_scale_factor()
+        window's bottom the box reaches (its height with any attachment chips, its bottom
+        margin and a gap), in the scene's device pixels. STOP stays just above it."""
+        self.pscene.entry_clear = (alloc.height + box.get_margin_bottom() + 6) * box.get_scale_factor()
+        stop = max(96, alloc.height + box.get_margin_bottom() + 23)
+        if self.stopbtn.get_margin_bottom() != stop:
+            GLib.idle_add(lambda: (self.stopbtn.set_margin_bottom(stop), False)[1])
 
     def ensure_vector(self):
         if self.vector:
@@ -490,16 +718,20 @@ class App:
                 log("pydantic-ai brain unavailable, using classic:", e)
         from .vector.scene import VectorScene
         self.pscene = VectorScene(self.live)
-        self.entry = GrowEntry(name="vector-entry")
+        self.inputbox = InputBox(1180 - self.pscene.left_w - 14 - 30, notice=self._attach_notice,
+                                 changed=self._attachments_changed)
+        self.inputbox.set_halign(Gtk.Align.END)
+        self.inputbox.set_valign(Gtk.Align.END)
+        self.inputbox.set_margin_end(30)
+        self.inputbox.set_margin_bottom(34)
+        self.entry = self.inputbox.entry
+        self.attachbtn = self.inputbox.attachbtn
+        self.chips = self.inputbox.chips
         self.entry.set_placeholder_text("ask VECTOR…")
-        self.entry.set_halign(Gtk.Align.END)
-        self.entry.set_valign(Gtk.Align.END)
-        self.entry.set_margin_end(30)
-        self.entry.set_margin_bottom(34)
-        self.entry.set_size_request(1180 - self.pscene.left_w - 14 - 30, -1)
         self.entry.connect("activate", self._on_entry)
         self.entry.connect("changed", lambda e: self.histpanel.get_visible() and GLib.timeout_add(250, self._history_typed, e.get_text()))
         self.entry.set_tooltip_text("Type to VECTOR; Enter sends, Shift+Enter starts a new line; the box grows with what you type. "
+                                    "Drop files here or paste an image (Ctrl+V) to attach them. "
                                     "Esc hands the keyboard back; click here to type again.")
         self.minbtn = Gtk.Button(label="— MINIMIZE", name="vector-min")
         self.minbtn.set_halign(Gtk.Align.END)
@@ -551,16 +783,18 @@ class App:
         RUNNER.on_change = lambda cur: GLib.idle_add(self._shell_changed, cur)
         RUNNER.on_notice = lambda text: GLib.idle_add(self._herdr_notice, text)   # spoken in the notify voice
         self.vector = HoloWindow("bromigos-vector", self.pscene, (1180, 640), "br", {"r": 24, "b": 24},
-                                keyboard_exclusive=False, overlay_children=[self.histpanel, self.entry, self.minbtn, self.convbtn, self.histbtn, self.stopbtn, self.voicebtn],
-                                input_widgets=[self.entry, self.minbtn, self.convbtn, self.histbtn, self.stopbtn, self.histpanel, self.voicebtn])
+                                keyboard_exclusive=False, overlay_children=[self.histpanel, self.inputbox, self.minbtn, self.convbtn, self.histbtn, self.stopbtn, self.voicebtn],
+                                input_widgets=[self.entry, self.attachbtn, self.chips, self.minbtn, self.convbtn, self.histbtn, self.stopbtn, self.histpanel, self.voicebtn])
         self.vector.win.connect("key-press-event", self._vector_key)
-        # the input box grows with its text: the window's pointer region follows it (the
-        # window itself is full-screen, so its own size-allocate never fires for this)
-        self.entry.connect("size-allocate", lambda *a: GLib.idle_add(lambda: (self.vector.update_input_region(), False)[1]))
-        self.entry.connect("size-allocate", self._entry_sized)
+        self.inputbox.drop_target(self.vector.win)      # files dropped on VECTOR or his console: attachments
+        # the input box grows with its text and its chips: the window's pointer region follows
+        # it (the window itself is full-screen, so its own size-allocate never fires for this)
+        self.inputbox.connect("size-allocate", lambda *a: GLib.idle_add(lambda: (self.vector.update_input_region(), False)[1]))
+        self.inputbox.connect("size-allocate", self._entry_sized)
         self.vector.win.connect("notify::has-toplevel-focus", self._vector_focus)
         # the chat box (transcript side + its controls) can fold away, leaving VECTOR alone
-        self.chat_widgets = (self.entry, self.minbtn, self.convbtn, self.histbtn, self.stopbtn, self.voicebtn, self.histpanel)
+        self.chat_widgets = (self.entry, self.attachbtn, self.chips, self.minbtn, self.convbtn, self.histbtn, self.stopbtn,
+                             self.voicebtn, self.histpanel)
         self.chat_override = None            # None: the default (folded away); True/False: pinned
         self.chat_hover = False
         self.chat_leave_timer = None
@@ -1233,19 +1467,61 @@ class App:
             self._history_list()
             return
         text = entry.get_text().strip()
-        if not text:
+        if not text and not self.inputbox.pending:
             return
         entry.set_text("")
-        self.ask(text)
+        self.ask(text, self.inputbox.take())
 
-    def ask(self, text):
+    def ask(self, text, attachments=()):
+        """attachments: attach.Attachment list, sent with the text (the chips, or ask --file)."""
         self.ensure_vector()
         self.last_word = time.monotonic()
         if not self.vector.visible:
             self.show_vector(focus=False, greet=False)
-        self.pscene.add_user(text)
+        if text:
+            self.pscene.add_user(text)
+        from .vector.attach import line
+        for a in attachments:
+            self.pscene.add_attached(line(a))
         self.last_activity = time.monotonic()
-        self.brain.ask(text)
+        if attachments:
+            self.brain.ask(text, attachments=list(attachments))
+        else:
+            self.brain.ask(text)
+
+    def _attach_notice(self, text):
+        self.pscene.note(text)
+
+    def _attachments_changed(self):
+        """A chip came or went: the chat box stays open while files wait to be sent."""
+        if self.inputbox.pending and not self.chat_visible():
+            self.chat_override = True
+            self._apply_chat()
+        self.last_activity = time.monotonic()
+
+    def ask_files(self, arg):
+        """`bromigos-holo ask --file PATH "…"`: {"text", "files"} from the launcher."""
+        from .vector import attach
+        try:
+            d = json.loads(arg)
+        except ValueError:
+            return "error: ask-files wants JSON"
+        atts, refused = [], []
+        for p in d.get("files") or []:
+            try:
+                atts.append(attach.from_path(p))
+            except attach.Refused as e:
+                refused.append(f"{os.path.basename(p)}: {e}")
+        self.ensure_vector()
+        for r in refused:
+            self.pscene.note("not attached: " + r)
+        if len(atts) > attach.MAX_PENDING:
+            refused.append(f"{len(atts) - attach.MAX_PENDING} more: {attach.MAX_PENDING} files is the most for one message")
+            atts = atts[:attach.MAX_PENDING]
+        if not atts and not (d.get("text") or "").strip():
+            return "nothing to send: " + "; ".join(refused)
+        self.ask((d.get("text") or "").strip(), atts)
+        return f"asked, with {len(atts)} attached" + ("; not attached: " + "; ".join(refused) if refused else "")
 
     def _vector_key(self, w, ev):
         name = Gdk.keyval_name(ev.keyval)
@@ -1447,7 +1723,8 @@ class App:
         """Hand the conversation since the last summary to Gnosis (infer=true), in the background."""
         if not (self.memory and self.brain) or self.brain.busy:
             return
-        turns = self.brain.history[self.summarized_at:]
+        turns = [{**m, "content": m["_ref"]} if m.get("_ref") else m       # attachments: their reference only
+                 for m in self.brain.history[self.summarized_at:]]
         if sum(1 for m in turns if m.get("role") == "user") < 2:
             return
         self.summarized_at = len(self.brain.history)
@@ -1628,6 +1905,8 @@ class App:
             return self.toggle_chat()
         elif verb == "ask":
             self.ask(arg)
+        elif verb == "ask-files":
+            return self.ask_files(arg)
         elif verb == "gallery":
             self.toggle_gallery(arg or None)
         elif verb == "gallery-show":           # never closes it (the app launcher's entry)
@@ -1779,6 +2058,13 @@ class App:
                     if cmd.startswith("switch "):  # the emergency switch: answered here, never queued behind GTK
                         c.sendall(self._switch_said(cmd[7:]).encode())
                         continue
+                    if cmd.startswith("ask-files "):
+                        # files are Sir's to hand over: his terminal can't make the daemon (outside
+                        # the sandbox) read a file for him
+                        from .vector.attach import from_sandbox
+                        if from_sandbox(c):
+                            c.sendall(b"refused: attachments come from the operator, not from VECTOR's own terminal")
+                            continue
                     box = {}
                     ev = threading.Event()
 

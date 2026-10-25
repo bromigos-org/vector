@@ -87,12 +87,13 @@ class Brain:
         self.memory = None         # holo.vector.memory.Memory, set by the app
         self.recalled = []
 
-    def ask(self, text):
+    def ask(self, text, attachments=None):
+        """attachments: attach.Attachment list (files and images Sir handed him with it)."""
         if self.busy:
             self.cancel.set()
             time.sleep(0.05)
         self.cancel.clear()
-        threading.Thread(target=self._run, args=(text,), daemon=True, name="vector-brain").start()
+        threading.Thread(target=self._run, args=(text, attachments or []), daemon=True, name="vector-brain").start()
 
     def _log(self, rec):
         os.makedirs(os.path.dirname(CHATLOG), exist_ok=True)
@@ -106,9 +107,11 @@ class Brain:
             mem = ("\nWHAT YOU REMEMBER (your long-term memory, for this question; trust it but don't recite it)\n"
                    + "\n".join(f"- {x[:240]}" for x in self.recalled[:5]) + "\n")
         sys = persona.SYSTEM + persona.voices_block() + mem + f"\nIt is {now}. The workstation is an Arch Linux desktop (Hyprland) the operator sits at."
-        return [{"role": "system", "content": sys}] + self.history[-24:]
+        # (an attachment's message keeps a reference beside it, "_ref": not for the model)
+        return [{"role": "system", "content": sys}] + [{k: v for k, v in m.items() if not k.startswith("_")}
+                                                       for m in self.history[-24:]]
 
-    def _run(self, text):
+    def _run(self, text, attachments=()):
         with self.lock:
             self.busy = True
             t0 = time.monotonic()
@@ -117,12 +120,18 @@ class Brain:
                 self.cb.state("thinking")
                 self.recalled = []
                 if self.memory is not None:        # capped at 0.2 s; skipped gracefully
-                    self.recalled, rs = self.memory.recall(text)
+                    self.recalled, rs = self.memory.recall(text or " ".join(a.name for a in attachments))
                     stats.update(rs)
                     if self.recalled and hasattr(self.cb, "memory"):
                         self.cb.memory("recall", len(self.recalled))
-                self.history.append({"role": "user", "content": text})
-                self._log({"role": "user", "text": text})
+                if attachments:   # the model reads them (attach.py); the log and memory keep a reference
+                    from . import attach
+                    self.history.append({"role": "user", "content": attach.compose(text, attachments),
+                                         "_ref": attach.with_refs(text, attachments)})
+                    self._log({"role": "user", "text": text, "attachments": attach.refs(attachments)})
+                else:
+                    self.history.append({"role": "user", "content": text})
+                    self._log({"role": "user", "text": text})
                 final = ""
                 for rnd in range(MAX_ROUNDS):
                     stats["rounds"] = rnd + 1
@@ -162,6 +171,8 @@ class Brain:
                 for m in self.history[:-8]:
                     if m.get("role") == "tool" and len(m.get("content") or "") > 1500:
                         m["content"] = m["content"][:1500] + "…"
+                    elif m.get("_ref"):          # and of an attachment, only the reference
+                        m["content"] = m["_ref"] + "\n(read earlier; its contents are no longer in view)"
                 stats["total_s"] = round(time.monotonic() - t0, 2)
                 self._log({"role": "vector", "text": final, "stats": stats})
                 self.cb.done(final, stats)

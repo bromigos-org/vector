@@ -15,6 +15,7 @@ He can:
 - read your machine, your homelab and your repositories
 - browse the web in a browser of his own
 - look at your screen when you ask
+- read the files and images you hand him
 - make images, cutouts, 3D models and holograms, for free on your own hardware
 - run commands in a sandboxed terminal
 - take notes and remember what you tell him
@@ -78,6 +79,21 @@ Press **Super+E** and type. Enter sends, and Esc hands the keyboard back.
 In his window, Shift+Enter starts a new line, Ctrl+H opens past conversations, and
 Shift+Esc minimizes him. VECTOR and the Hologram Gallery are also in the app launcher.
 
+To give him a file or an image with your message, do one of these:
+
+- drop it on VECTOR or on his chat box;
+- copy an image, or a file in your file manager, and press Ctrl+V in the box;
+- click **+ ATTACH** beside the box and pick one or more files.
+
+Each file shows as a chip above the box, with its name and size. Click its × to take it
+off. Enter sends the files with what you typed, and the conversation shows a line for each
+one, such as `⟐ attached · screenshot.png · 240 KB`.
+
+He reads text, code, logs and PDFs as text. Images go to his vision model, which tells him
+what they show. Other files he gets as a path, which he can open with his tools. What's
+inside a file is something to read, never an order to him. He won't read a secret, such as
+a key or a `.env` file ([safety.md](docs/safety.md#attachments)).
+
 Most of his window lets clicks through to the window behind it. Only the chat box, the
 buttons and the history panel take the mouse.
 
@@ -90,6 +106,7 @@ The same controls work from a terminal:
 
 ```bash
 bromigos-holo ask "how's the GPU doing?"   # ask without opening his window
+bromigos-holo ask --file build.log "why did this fail?"   # ask with a file attached
 bromigos-holo status                       # is he running, and what is he doing
 bromigos-holo restart                      # restart him after a settings change
 bromigos vector off                        # the emergency switch: VECTOR off, now

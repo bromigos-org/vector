@@ -14,6 +14,7 @@ commands. `bromigos vector <command>` is the same thing.
 | `bromigos-holo vector` | Shows or minimizes VECTOR |
 | `bromigos-holo vector-show` | Shows him, never minimizes (the app launcher's entry) |
 | `bromigos-holo ask "…"` | Asks him something without typing in his window |
+| `bromigos-holo ask --file PATH [--file PATH …] "…"` | The same, with files or images attached ([safety.md](safety.md#attachments)) |
 | `bromigos-holo conversation` | Turns conversation mode on or off |
 | `bromigos-holo chat` | Pins his chat box shown, or folds it away |
 | `bromigos-holo history` | Opens or closes past conversations |
@@ -42,6 +43,10 @@ A client connects, sends one command as text, such as `status` or `ask what time
 and reads one reply. The daemon answers within 5 seconds. Besides the launcher's
 commands, it accepts `release` (hand the keyboard back) and `say …` (speak a short notice;
 the build watcher uses it).
+
+`ask --file` arrives as `ask-files` and a JSON object, `{"text": "…", "files": ["/abs/path",
+…]}`. The daemon refuses it from a caller in another mount namespace or in his sandbox's
+slice, so only you hand him files.
 
 The emergency switch sends `switch off <who>` and `switch on <who>` after it has written
 or removed its files. The daemon answers these at once, outside its main loop. `switch off`

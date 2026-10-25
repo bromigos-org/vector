@@ -161,14 +161,13 @@ def _capture(target, max_side):
 def _ask(jpeg, prompt, max_tokens=500):
     cf = _conf()
     key = llm.key()
-    from .brain_pai import BASE
     ctx = ssl.create_default_context(cafile=CA) if os.path.exists(CA) else ssl.create_default_context()
     body = {"model": cf["model"], "max_tokens": max_tokens, "temperature": 0.1, "no-log": True,   # LiteLLM: don't log this one
             "chat_template_kwargs": {"enable_thinking": False},
             "messages": [{"role": "user", "content": [
                 {"type": "text", "text": prompt},
                 {"type": "image_url", "image_url": {"url": "data:image/jpeg;base64," + base64.b64encode(jpeg).decode()}}]}]}
-    req = urllib.request.Request(BASE + "/chat/completions", data=json.dumps(body).encode(),
+    req = urllib.request.Request(llm.url("/chat/completions"), data=json.dumps(body).encode(),   # under either brain
                                  headers={"Authorization": "Bearer " + key, "Content-Type": "application/json"})
     with urllib.request.urlopen(req, timeout=90, context=ctx) as r:
         return json.load(r)["choices"][0]["message"]["content"].strip()
