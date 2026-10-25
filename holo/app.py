@@ -75,6 +75,19 @@ CSS = b"""
   min-height: 0;
 }
 #vector-min:hover { color: #000500; background-color: #39ff14; border-color: #39ff14; }
+#vector-attach {
+  background-image: none;
+  background-color: rgba(0, 19, 0, 0.82);
+  color: #9cff8a;
+  border: 1px solid rgba(21, 155, 9, 0.9);
+  border-left: none;
+  border-radius: 0;
+  box-shadow: none;
+  padding: 0;
+  min-height: 0;
+  min-width: 0;
+}
+#vector-attach:hover { color: #000500; background-color: #39ff14; border-color: #39ff14; }
 #vector-chip {
   background-color: rgba(0, 19, 0, 0.82);
   border: 1px solid rgba(21, 155, 9, 0.9);
@@ -182,13 +195,14 @@ URI_INFO = 7701                           # a drop's target info: a file list (t
 
 def paperclip(cr, button, w, h):
     """The attach button's icon: a paperclip, stroked in the button's own text colour, so it
-    follows the theme's CSS (retint) and turns dark with the button on hover."""
+    follows the theme's CSS (retint) and turns dark with the button on hover. It keeps its
+    size, centred, when the box grows."""
     ctx = button.get_style_context()
     c = ctx.get_color(button.get_state_flags())
     cr.set_source_rgba(c.red, c.green, c.blue, c.alpha)
     cr.translate(w / 2, h / 2)
     cr.rotate(math.pi / 4)
-    k = min(w, h) / 18.0
+    k = min(w, h, 26) / 18.0
     cr.scale(k, k)
     cr.translate(0, 1)                    # the clip runs y -9.5..7.5: centre it
     cr.move_to(1.5, 2)                    # inner wire, up to the small top turn
@@ -199,7 +213,7 @@ def paperclip(cr, button, w, h):
     cr.line_to(3.5, -6)                   # up the outside to the big top turn
     cr.arc_negative(0, -6, 3.5, 0, -math.pi)
     cr.line_to(-3.5, 3)
-    cr.set_line_width(1.5)
+    cr.set_line_width(1.7)
     cr.set_line_cap(1)                    # cairo.LINE_CAP_ROUND
     cr.set_line_join(1)                   # cairo.LINE_JOIN_ROUND
     cr.stroke()
@@ -228,19 +242,20 @@ class InputBox(Gtk.Box):
         # the pointer region is each chip, not the rows' empty ends (HoloWindow.update_input_region)
         self.chips.input_parts = lambda: [self.chip_of[id(a)] for a in self.pending]
         self.entry = GrowEntry(name="vector-entry")
-        self.attachbtn = Gtk.Button(name="vector-min")
+        # the paperclip is the box's right end: its height, joined to it (no border between)
+        self.attachbtn = Gtk.Button(name="vector-attach")
+        self.attachbtn.set_size_request(46, -1)
         clip = Gtk.DrawingArea()
-        clip.set_size_request(20, 21)
         clip.connect("draw", lambda w, cr: paperclip(cr, self.attachbtn, w.get_allocated_width(), w.get_allocated_height()))
         self.attachbtn.add(clip)
-        self.attachbtn.set_valign(Gtk.Align.END)
+        self.attachbtn.set_valign(Gtk.Align.FILL)
         self.attachbtn.set_can_focus(False)
         self.attachbtn.set_tooltip_text(
             "Attach files or images to your next message. You can also drop files on VECTOR or this box, or "
             "paste an image with Ctrl+V. Images go to his vision model; text, code, logs and PDFs are read as "
             "text; anything else he gets as a path. He reads what's inside as data, never as orders.")
         self.attachbtn.connect("clicked", lambda b: self.choose())
-        row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+        row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
         row.pack_start(self.entry, True, True, 0)
         row.pack_start(self.attachbtn, False, False, 0)
         self.pack_start(self.chips, False, False, 0)
