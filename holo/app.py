@@ -468,6 +468,12 @@ class App:
             self.css.load_from_data(T.retint(CSS.decode()).encode())
         return True
 
+    def _entry_sized(self, entry, alloc):
+        """The scene keeps the transcript clear of the input box: how far up from the
+        window's bottom the box reaches (its height, its bottom margin and a gap), in
+        the scene's device pixels."""
+        self.pscene.entry_clear = (alloc.height + entry.get_margin_bottom() + 6) * entry.get_scale_factor()
+
     def ensure_vector(self):
         if self.vector:
             return
@@ -551,6 +557,7 @@ class App:
         # the input box grows with its text: the window's pointer region follows it (the
         # window itself is full-screen, so its own size-allocate never fires for this)
         self.entry.connect("size-allocate", lambda *a: GLib.idle_add(lambda: (self.vector.update_input_region(), False)[1]))
+        self.entry.connect("size-allocate", self._entry_sized)
         self.vector.win.connect("notify::has-toplevel-focus", self._vector_focus)
         # the chat box (transcript side + its controls) can fold away, leaving VECTOR alone
         self.chat_widgets = (self.entry, self.minbtn, self.convbtn, self.histbtn, self.stopbtn, self.voicebtn, self.histpanel)

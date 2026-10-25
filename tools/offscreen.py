@@ -5,7 +5,8 @@ desktop. For screenshots and tuning.
   offscreen.py gallery OUT.png [model] [explode 0..1] [iso part id] [t seconds]
   offscreen.py vector OUT.png [state] [exhibit] [t seconds]
       (env OFF_CHAT=0 folds the chat box away; OFF_CONV=1 shows conversation mode;
-       OFF_LONG=1 a long conversation, OFF_SCROLL=N scrolled back N px)
+       OFF_LONG=1 a long conversation, OFF_SCROLL=N scrolled back N px,
+       OFF_ENTRY=N an input box grown to N px tall: the transcript ends above it)
 
 The readings are this machine's and the lab's, live; OFF_DEMO=1 uses made-up ones instead
 (DemoLive), for anything published. The frame sits over bromigOS's packaged empty den
@@ -180,6 +181,8 @@ def main():
                 p.add_user(f"question {k + 1}: how is the lab doing?")
                 p.begin_reply(); p.feed(f"Answer {k + 1}. All six nodes are up and every service answers. " * 2); p.end_reply()
         p.scroll = float(os.environ.get("OFF_SCROLL", 0))              # pixels scrolled back
+        if os.environ.get("OFF_ENTRY"):                                # the box's height + margin + gap
+            p.entry_clear = float(os.environ["OFF_ENTRY"]) + 34 + 6
         p.fade = 1.0
         for k in range(int(tt * 30)):
             p.advance(1 / 30)

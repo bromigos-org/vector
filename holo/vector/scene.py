@@ -416,7 +416,8 @@ class VectorScene:
             return
         # transcript, newest at the bottom, above the input line
         width = w - x0 - 32 * sc
-        bottom = h - 78 * sc
+        # the input box grows with what's typed: the transcript ends above its top edge
+        bottom = h - max(78 * sc, getattr(self, "entry_clear", 0.0))
         y = bottom + self.scroll * sc
         top = 72 * sc
         rows = []
@@ -450,7 +451,7 @@ class VectorScene:
         # how far back the wheel may go: no further once the oldest line is on screen
         self.scroll_max = self.scroll if reached_oldest else self.scroll + 1e6
         # a dark backing under the transcript and the entry, only as tall as the text
-        y_top = min([r[2] for r in rows] + [h - 78 * sc]) - 12 * sc
+        y_top = min([r[2] for r in rows] + [bottom]) - 12 * sc
         H.rect(x0 - 14 * sc, y_top, w - x0 - 4 * sc, h - y_top - 10 * sc, wick((0.0, 0.035, 0.0, 0.8 * pf)))
         H.rect(x0 - 14 * sc, 12 * sc, w - x0 - 4 * sc, 84 * sc, wick((0.0, 0.035, 0.0, 0.62 * pf)))   # header backing
         H.rect(12 * sc, 12 * sc, 330 * sc, 52 * sc, wick((0.0, 0.035, 0.0, 0.5 * f)))
