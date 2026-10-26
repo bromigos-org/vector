@@ -11,6 +11,7 @@ the eval suite and packaging.
 | `holo/app.py` | The daemon: GTK3 layer-shell windows, the control socket, the state file |
 | `holo/render.py`, `stage.py`, `gallery.py`, `worlds.py`, `fmt.py`, `live.py`, `bind.py`, `motion.py` | The hologram renderer, models, the gallery's shelves and colours, live readings, reduced motion |
 | `holo/vector/` | VECTOR himself: brains, persona, tools, terminal, guard, memory, voice, eyes, browser, briefs, snapshots, build loop, MCP servers |
+| `holo/portrait.py` | His portrait as a stream of frames on stdout, for apps that show him live without running his renderer inside them (BRODEC's desktop panel). Its docstring has the protocol |
 | `holo/voice_server.py`, `holo/shimmer.py` | The speech server, and the projector effect on his voice |
 | `holo/paths.py`, `holo/targets.py`, `holo/private.py` | Where settings, plugins and services are |
 | `lib/privacy_guard.py` | The privacy check shared with your dotfiles' git hook |
@@ -88,6 +89,7 @@ window.
 |---|---|
 | `test-gallery-worlds.py` | The gallery's shelves, colours, keys and hover text |
 | `test-motion-render.py` | Reduced and still motion, frame by frame |
+| `test-portrait.py` | The portrait stream: the ready line, frames he's in, his states, pausing, stopping at the end of input |
 
 **These use your models, audio or screen.**
 
