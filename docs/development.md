@@ -11,7 +11,8 @@ the eval suite and packaging.
 | `holo/app.py` | The daemon: GTK3 layer-shell windows, the control socket, the state file |
 | `holo/render.py`, `stage.py`, `gallery.py`, `worlds.py`, `fmt.py`, `live.py`, `bind.py`, `motion.py` | The hologram renderer, models, the gallery's shelves and colours, live readings, reduced motion |
 | `holo/vector/` | VECTOR himself: brains, persona, tools, terminal, guard, memory, voice, eyes, browser, briefs, snapshots, build loop, MCP servers |
-| `holo/portrait.py` | His portrait as a stream of frames on stdout, for apps that show him live without running his renderer inside them (BRODEC's desktop panel). Its docstring has the protocol |
+| `holo/portrait.py` | His portrait as a stream of frames, for apps that show him live without running his renderer inside them (BRODEC's desktop panel): on stdout (version 1), or in shared memory with the app's holo projector drawn beside him (version 2). Its docstring has the protocol |
+| `holo/projector.py` | The holo projector: an app's projections (the world's model, a person, a picture, the lab, a chart, who's around, what's playing, the weather, a list) drawn as holograms. Its docstring lists the projections and their fields |
 | `holo/voice_server.py`, `holo/shimmer.py` | The speech server, and the projector effect on his voice |
 | `holo/paths.py`, `holo/targets.py`, `holo/private.py` | Where settings, plugins and services are |
 | `lib/privacy_guard.py` | The privacy check shared with your dotfiles' git hook |
@@ -90,6 +91,11 @@ window.
 | `test-gallery-worlds.py` | The gallery's shelves, colours, keys and hover text |
 | `test-motion-render.py` | Reduced and still motion, frame by frame |
 | `test-portrait.py` | The portrait stream: the ready line, frames he's in, his states, pausing, stopping at the end of input |
+| `projector-render.py --check` | The portrait stream's version 2 and the projector: the layout, whole frames, projections and their regions, frame rates, pausing, stopping |
+
+`projector-render.py OUTDIR` draws each projection with invented data to a PNG (`--frames N`
+for N frames each and an MP4), and `--bench` prints each one's GPU time a frame and the
+stream's CPU.
 
 **These use your models, audio or screen.**
 
