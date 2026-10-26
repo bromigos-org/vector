@@ -9,6 +9,50 @@ This repository's history starts at 0.1.2. The commits before it, which the link
 
 <!-- releases: tools/release/release.py adds each release below this line, newest first -->
 
+## [0.1.3] - 2026-10-26
+<!-- release: 0.1.3-rc1 -->
+
+Release candidate v0.1.3-rc1.
+
+Since v0.1.2. Released with bromigOS 0.1.3 (its notes: bromigOS's manual, What's new).
+
+### Changed
+
+- Pr_merge never merges a homelab PR until its `validate` check has passed (REQUIRED_CHECKS); a missing check is waited for, not the 150 s "no CI" grace, since Argo CD deploys whatever lands on master ([285835c](https://github.com/bromigos-org/vector/commit/285835cc3f929b4ec51a2a232c87624ac56c936a))
+- VECTOR's dotfiles clone uses his public_repo token; the org's repos his fine-grained one (bromigodev's all-scope token is out of his sandbox) ([b79de0b](https://github.com/bromigos-org/vector/commit/b79de0b3d82444201aea9e71b9ea1821dbe339b2))
+
+### VECTOR
+
+- holo: the transcript ends above the input box, however tall it grows, instead of at a fixed 78 px that the box covered ([247ba80](https://github.com/bromigos-org/vector/commit/247ba8099a67a18957696e9a30ac00169b3bf741))
+
+### Docs
+
+- docs: CONTRIBUTING.md (build, test, commit style, how his safety rules affect a change) and CODE_OF_CONDUCT.md (Contributor Covenant 2.1, contact@bromigos.org), linked from the README ([e5f819e](https://github.com/bromigos-org/vector/commit/e5f819ec3c401867d90715d199d62290a0597ee8))
+- docs: the secrets command is `bromigos secrets sync` ([934776c](https://github.com/bromigos-org/vector/commit/934776c8a029952bea43247417466a582a30a21f))
+
+### Packaging and CI
+
+- packaging: copy each channel to the private Cloud Storage mirror too, like bromigOS's publish.sh ([141b492](https://github.com/bromigos-org/vector/commit/141b492a9125527d6cc113d5ca745b56ecb7c96b))
+- packaging: the public mirror is a Cloudflare R2 bucket (PKGS_PUBLIC_*), like bromigOS's publish.sh ([fc71354](https://github.com/bromigos-org/vector/commit/fc71354fc72253cd0b83836ec00241cd1e1e7fcc))
+- packaging: the public mirror leaves out 1password, as bromigOS's publish.sh does ([b284266](https://github.com/bromigos-org/vector/commit/b284266b4e8e74dceac9aebc08519110d9aa1851))
+- packaging: on GitHub's runners the R2 bucket is the primary (PKGS_PRIMARY=public), as in bromigOS ([dbe7a10](https://github.com/bromigos-org/vector/commit/dbe7a105f030eab94af4c50bf4cb8cd6c66b97e4))
+
+### Other
+
+- privacy guard: the RFC 7042 documentation MACs (00:00:5E:00:53:xx) pass; test-devflow's LAN address is marked as needed ([cbbe4d2](https://github.com/bromigos-org/vector/commit/cbbe4d29f20f4896941d0c2e53acb0f91eef794c))
+- tests: each `privacy: allow` in test-privacy-guard says why the private shape is needed ([6f9f1f2](https://github.com/bromigos-org/vector/commit/6f9f1f289789e70aefac64f5d4e9d573dda57554))
+- media: media_search, media_get, media_status, media_upcoming, media_recent, media_language: VECTOR asks the homelab's media stack for films, shows, anime and music (bromigOS's `bromigos lab media`) ([2dfe753](https://github.com/bromigos-org/vector/commit/2dfe7536b279a54a08686c5bb532eeeb917278e2))
+- tests: test-media.py brings an empty private-overlay module where bromigos-core isn't installed (CI), as test-devflow.py does ([db85c54](https://github.com/bromigos-org/vector/commit/db85c547173fedfccba8e87a5f8422069a29a816))
+- media: media_delete: a title, a season, episode files or an album, files and all, only when Sir's latest words name it and ask for a delete ([b2a0448](https://github.com/bromigos-org/vector/commit/b2a0448acf4d9387173c5fa67e7f0e4fc04a96d3))
+- claude: claude_sessions, claude_read, claude_search, claude_memory, claude_logs, claude_say_latest, claude_follow: VECTOR reads Claude Code's transcripts, jobs, memory and logs directly, read only and redacted ([cda25bb](https://github.com/bromigos-org/vector/commit/cda25bbb6b37ca034053e51397152ac754e7281d))
+- tv: audited channel tools for the desktop and phone picks ([f530c8c](https://github.com/bromigos-org/vector/commit/f530c8c16a3535eb5716b43f7d04c53efaa52670))
+- tv: resolve legacy channel names consistently ([a32f62e](https://github.com/bromigos-org/vector/commit/a32f62eabf2b731540d6c312e887d19938ec771c))
+- tools: play specific media and use the den TV remote ([c126ff9](https://github.com/bromigos-org/vector/commit/c126ff9137f5c88cc3564f61ba5fd138a5a79bf7))
+- attach: files and images for VECTOR: drop them on him, paste with Ctrl+V, + ATTACH or ask --file; chips by the box, read as data never instructions, never a secret, only references kept ([dd34c38](https://github.com/bromigos-org/vector/commit/dd34c3878ced0cd88c976c29560703952dce835a))
+- attach: the attach button is a paperclip drawn in the button's theme colour, not "+ ATTACH" ([69a188c](https://github.com/bromigos-org/vector/commit/69a188cda4f5fb1251df80874b76150656b04edf))
+- attach: the paperclip is the input box's right end, the box's height and joined to it, with a larger icon centred in it ([eaea66e](https://github.com/bromigos-org/vector/commit/eaea66e4de41f4104cdcde926e94e1ddcf13afdc))
+- portrait: VECTOR's portrait as a stream of frames (holo/portrait.py), so another app shows him live without running his renderer inside it ([1b98754](https://github.com/bromigos-org/vector/commit/1b98754c259b229534be471e6bdd84ff778217c4))
+
 ## [0.1.2] - 2026-10-09
 <!-- release: 0.1.2-rc2 -->
 
