@@ -20,6 +20,17 @@ def available_player():
     return all(importlib.util.find_spec(n) is not None for n in ("bromigos_tvplay", "bromigos_tvremote"))
 
 
+def available_cast():
+    return importlib.util.find_spec("bromigos_cast") is not None
+
+
+def _cast():
+    import os
+    import bromigos_cast
+    os.environ["BROMIGOS_CAST_CALLER"] = "vector"     # who asked, in the cast audit log
+    return bromigos_cast
+
+
 def _channels():
     import bromigos_tvchannels
     return bromigos_tvchannels
@@ -68,6 +79,31 @@ def tv_remote(action: str, screen: str = 'big'):
     if action not in bromigos_tvremote.ACTIONS or action in ('digits','leave','cancel') or action.startswith('digit-'):
         raise ValueError('Use volume-up/down, channel-up/down, mute, skip, previous, open, sound or guide')
     return bromigos_tvremote.send('remote ' + action + ' --screen ' + screen_name(screen))
+
+
+def tv_cast_targets():
+    """Every screen to cast to: Chromecasts, DLNA TVs, AirPlay, Jellyfin's apps and the den's screens."""
+    out = _cast().targets()
+    return {k: out[k] for k in ("targets", "protocols")}
+
+
+def tv_cast(target: str, title: str | None = None, id: str | None = None, source: str | None = None,
+            url: str | None = None, screen: str | None = None, resume: bool = False):
+    """Play on a cast target, named by its id or words from its name or room ("living room Chromecast").
+    title, id with source, a YouTube url, or screen (what that den screen shows, from the same moment)."""
+    if sum(bool(v) for v in (title, id, url, screen)) != 1:
+        raise ValueError("Give exactly one of title, id, url or screen")
+    return _cast().play(target, screen=screen, title=title, id_=id, source=source, url=url, resume=resume)
+
+
+def tv_cast_control(target: str, action: str, value: float | None = None):
+    """play, pause, stop, seek (value: seconds), volume (value: 0-100), volume-up, volume-down, mute, unmute."""
+    return _cast().control(target, action, value)
+
+
+def tv_cast_handback(target: str, screen: str = 'big'):
+    """Stop a cast target and go on from the same moment on a den screen."""
+    return _cast().handback(target, screen)
 
 
 def tv_channel_delete(channel: str, confirm: bool = False):

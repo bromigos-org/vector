@@ -276,3 +276,22 @@ The screen returns to its live channel when playback ends or its channel changes
 control path as the equipment knobs, MEDIA widget and number-pad keys. It does not take
 over the operator's keyboard. Both tools are audited, desktop-only and unavailable to
 the phone; phone access remains channel reading and adding/removing individual picks.
+
+## Casting to other screens
+
+`tv_cast_targets` lists every screen in the house to cast to, with what each plays:
+Chromecasts and Google TVs, DLNA smart TVs, AirPlay receivers, the apps Jellyfin can steer,
+and the den's own screens. `tv_cast` plays on one, named by its id or by words from its
+name or room ("living room Chromecast"). Give one of `title` (`Cowboy Bebop S01E05`), an
+`id` with its `source`, a YouTube `url`, or `screen` to move what a den screen shows there
+from the same moment. `tv_cast_control` plays, pauses, stops, seeks (`value` in seconds),
+sets the volume (`value` 0 to 100) or mutes. `tv_cast_handback` stops the target and goes
+on from the same moment on a den screen.
+
+Ask "play Cowboy Bebop on the living room Chromecast", "pause the bedroom TV" or "put it
+back on the den". "Put Cowboy Bebop on the den TV" still uses `tv_play`.
+
+All four call bromigOS's shared `bromigos_cast` library, the one `bromigos media cast` and
+BRODEC's den remote use. They are audited, desktop-only and unavailable to the phone; the
+phone casts through BRODEC's den remote instead. Protected streaming apps' video can't be
+cast.
