@@ -26,6 +26,7 @@
 /holo/vector/create.py @blackflame007
 /holo/vector/money.py @blackflame007
 /tools/test-shell.py @blackflame007
+/tools/test-sandbox.py @blackflame007
 /tools/test-act.py @blackflame007
 /tools/test-desk.py @blackflame007
 /tools/test-build.py @blackflame007
