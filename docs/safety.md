@@ -618,3 +618,9 @@ Den TV on-demand playback and individual remote actions are audited desktop tool
 They cannot read credentials or expose stream headers; the shared bromigOS library
 resolves media privately. Remote actions send a single command to the named screen and
 do not enter keyboard remote mode. Neither tool is exposed to the phone endpoint.
+
+Casting (`tv_cast_targets`, `tv_cast`, `tv_cast_control`, `tv_cast_handback`) is audited
+twice: in VECTOR's tool log and in bromigOS's cast log, which names him as the caller. It
+reaches only screens on the local network that discovery found, or the den's. The media
+server's key goes only to the target, inside the stream address it fetches; no tool result,
+log or cache holds it. None of the four is exposed to the phone endpoint.

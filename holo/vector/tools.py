@@ -265,7 +265,8 @@ from .nolgia import nolgia_catalog, nolgia_credits, nolgia_generate, nolgia_read
 from .create import create, make_hologram  # noqa: E402
 from .lab import lab_console, lab_job_cancel, lab_job_submit, lab_jobs  # noqa: E402
 from .tv import (tv_channels, tv_channel_add_item, tv_channel_remove_item, tv_channel_create,
-                 tv_tune, tv_channel_delete, tv_play, tv_remote)
+                 tv_tune, tv_channel_delete, tv_play, tv_remote, tv_cast_targets, tv_cast, tv_cast_control,
+                 tv_cast_handback)
 from .media import (media_delete, media_get, media_language, media_recent, media_search, media_status,  # noqa: E402
                     media_upcoming)
 from .browser import (browser_back, browser_click, browser_close, browser_find, browser_look,  # noqa: E402
@@ -749,6 +750,18 @@ SPECS = {
     "tv_remote": ("One Den TV remote action on a screen, without entering keyboard remote mode. "
                   "volume-up/down, channel-up/down, mute, skip, previous, open, sound or guide.",
                   _p({"action": S, "screen": S}, ["action"])),
+    "tv_cast_targets": ("List the screens in the house to cast to: Chromecasts and Google TVs, DLNA smart TVs, "
+                        "AirPlay, Jellyfin's apps and the den's own screens, with what each plays.", _p({}, [])),
+    "tv_cast": ("On request, play on a cast target (a Chromecast, smart TV, Apple TV, Jellyfin app or den screen) "
+                "named by its id or words from its name or room, such as 'living room Chromecast'. Give one of "
+                "title (Cowboy Bebop S01E05), id with source, a YouTube url, or screen to move what a den screen "
+                "shows there from the same moment. Protected streaming apps' video can't be cast.",
+                _p({"target": S, "title": S, "id": S, "source": S, "url": S, "screen": S, "resume": B}, ["target"])),
+    "tv_cast_control": ("Control a cast target: play, pause, stop, seek (value seconds), volume (value 0-100), "
+                        "volume-up, volume-down, mute or unmute.",
+                        _p({"target": S, "action": S, "value": {"type": "number"}}, ["target", "action"])),
+    "tv_cast_handback": ("Stop what plays on a cast target and go on from the same moment on a den screen "
+                         "(big, scope or small).", _p({"target": S, "screen": S}, ["target"])),
     "tv_channel_delete": ("Remove a whole den TV channel. First returns the plan. confirm=true works only when "
                     "the operator's latest words explicitly request deletion and name that channel. Files stay.",
                     _p({"channel": S, "confirm": B}, ["channel"])),
@@ -984,6 +997,7 @@ def _needs():
         **{n: tv_mod.available() for n in ('tv_channels','tv_channel_add_item','tv_channel_remove_item',
                                          'tv_channel_create','tv_tune','tv_channel_delete')},
         **{n: tv_mod.available_player() for n in ('tv_play','tv_remote')},
+        **{n: tv_mod.available_cast() for n in ('tv_cast_targets','tv_cast','tv_cast_control','tv_cast_handback')},
         # Claude Code's records: there is a ~/.claude/projects to read
         **{n: os.path.isdir(os.path.join(claude_mod.root(), "projects")) for n in (
             "claude_sessions", "claude_read", "claude_search", "claude_memory", "claude_logs", "claude_say_latest",

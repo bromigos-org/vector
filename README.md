@@ -202,3 +202,5 @@ To report a security problem, see [SECURITY.md](SECURITY.md).
 On request, VECTOR can play an episode, movie or YouTube video on a den TV with
 `tv_play`, or use its volume, channel and playback buttons with `tv_remote`.
 Both are audited desktop tools. See [the tools guide](docs/tools.md#playing-on-the-den-tvs).
+He can also cast to the house's other screens (Chromecasts, smart TVs, AirPlay, Jellyfin's
+apps) with `tv_cast`. See [the tools guide](docs/tools.md#casting-to-other-screens).

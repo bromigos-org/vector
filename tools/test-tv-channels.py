@@ -88,7 +88,8 @@ class Tools(unittest.TestCase):
                 and isinstance(n.targets[0],ast.Name) and n.targets[0].id in ('READ_ONLY','ACT','DESKTOP_ONLY')}
         self.assertIn('tv_channels',values['READ_ONLY'])
         for name in ('tv_channel_add_item','tv_channel_remove_item'): self.assertIn(name,values['ACT'])
-        for name in ('tv_channel_create','tv_tune','tv_channel_delete','tv_play','tv_remote'):
+        for name in ('tv_channel_create','tv_tune','tv_channel_delete','tv_play','tv_remote',
+                     'tv_cast_targets','tv_cast','tv_cast_control','tv_cast_handback'):
             self.assertIn(name,values['DESKTOP_ONLY']);self.assertNotIn(name,values['ACT'])
 
     def test_play_and_remote_are_audited_and_not_on_phone(self):
@@ -105,6 +106,40 @@ class Tools(unittest.TestCase):
         self.assertNotIn('tv_play',tools.WHILE_OFF);self.assertNotIn('tv_remote',tools.WHILE_OFF)
         with open(tools.AUDIT) as f: records=[json.loads(line) for line in f]
         self.assertTrue(all(any(r['tool']==name and r['ok'] for r in records) for name in ('tv_play','tv_remote')))
+
+    def test_cast_tools_share_bromigos_cast_and_are_audited(self):
+        import bromigos_cast as K
+        calls=[]
+        class Fake(K.Backend):
+            kind='cast'
+            def discover(self,timeout):
+                return [dict(id='cast:1',kind='cast',name='Living Room TV',model='Google Chromecast',can=['play'],_host='192.0.2.1')]
+            def play(self,target,item,start): calls.append(('play',target['id'],item['id']))
+            def control(self,target,op,value): calls.append((op,value))
+            def status(self,target): return K.playing('Episode 5','playing',30,600,40)
+        backends={k:(Fake() if k=='cast' else type('Off',(K.Backend,),{'available':lambda self:(False,'off')})())
+                  for k in K.KINDS}
+        backends['den']=type('NoDen',(K.Backend,),{'kind':'den'})()
+        item=dict(id='episode5',title='Episode 5',series='Space Radio',server='library',kind='episode')
+        import bromigos_tvplay as P
+        with (mock.patch.object(K,'BACKENDS',backends),mock.patch.object(P,'resolve',return_value=item),
+              mock.patch.object(K,'_video_source',return_value=None)):
+            doc=self.call('tv_cast_targets')
+            self.assertEqual([t['id'] for t in doc['targets']],['cast:1'])
+            self.assertNotIn('192.0.2.1',json.dumps(doc))
+            doc=self.call('tv_cast',target='living room chromecast',title='Space Radio S01E05')
+            self.assertEqual(calls[-1],('play','cast:1','episode5'))
+            self.call('tv_cast_control',target='Living Room TV',action='volume',value=30)
+            self.assertEqual(calls[-1],('volume',30.0))
+            text,_=tools.call('tv_cast',{'target':'living room','title':'A','url':'https://youtu.be/abcdefghijk'})
+            self.assertIn('error',json.loads(text))
+        with open(K._audit_path()) as f: casts=[json.loads(line) for line in f]
+        self.assertEqual({r['caller'] for r in casts},{'vector'})
+        with open(tools.AUDIT) as f: records=[json.loads(line) for line in f]
+        self.assertTrue(all(any(r['tool']==name and r['ok'] for r in records)
+                            for name in ('tv_cast_targets','tv_cast','tv_cast_control')))
+        for name in ('tv_cast_targets','tv_cast','tv_cast_control','tv_cast_handback'):
+            self.assertNotIn(name,tools.WHILE_OFF)
 
     def test_terminal_does_not_bypass_whole_channel_delete(self):
         self.assertTrue(guard._lab_switch(['bromigos-live','tv','channel','remove','Night Block','--yes']))
