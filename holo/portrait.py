@@ -43,12 +43,14 @@ stdout  "VECTOR-PORTRAIT 2 N PW PH" once both are ready (PW PH are 0 0 without a
 stdin   one command per line:
           state idle|listening|thinking|speaking
           level 0.42      the microphone's loudness while he listens, 0..1
+          voice 0.42      his own voice's loudness while he speaks, 0..1 (the clip
+                          playing); fresh ones drive him, else a talking cadence
           pause 1|0       hidden: draw nothing until unpaused
           project {...}   what the projector shows, a JSON object (holo/projector.py)
         At the end of its input it stops.
 
-He follows his state as in the console: listening moves with `level`, speaking pulses with
-a talking cadence, and the motion setting (holo.motion) calms or stills him and the
+He follows his state as in the console: listening moves with `level`, speaking moves with
+`voice` while it keeps coming (his real voice) and pulses with a talking cadence without it, and the motion setting (holo.motion) calms or stills him and the
 projector. Version 2 draws his portrait at --fps while he isn't idle, the projector at --fps
 while a projection builds up and at 15 while it moves on its own (ringing, flickering,
 turning), and each at 10 frames a second otherwise; still motion draws a frame a second. When it can't draw (no GPU, a driver refusing GL 3.3), it says why
@@ -78,6 +80,8 @@ class Commands:
     def __init__(self):
         self.state = "idle"
         self.level = 0.0
+        self.voice = 0.0
+        self.voice_at = -1.0
         self.paused = False
         self.projection = None
         self.projected = 0
@@ -93,6 +97,12 @@ class Commands:
                 self.level = max(0.0, min(1.0, float(value)))
             except ValueError:
                 return
+        elif word == "voice":
+            try:
+                self.voice = max(0.0, min(1.0, float(value)))
+            except ValueError:
+                return
+            self.voice_at = time.monotonic()
         elif word == "pause":
             self.paused = value == "1"
         elif word == "project":
@@ -113,6 +123,25 @@ class Commands:
             self.take(line)
         self.stop.set()
         self.wake.set()
+
+
+VOICE_FRESH_S = 0.3
+
+
+def speaking_level(cmds, phase, now=None):
+    """How loud he is while speaking: his voice as the player reports it (`voice`) while it
+    keeps coming, else a talking cadence (syllables over phrases)."""
+    now = time.monotonic() if now is None else now
+    if now - cmds.voice_at < VOICE_FRESH_S:
+        return 0.15 + 0.85 * cmds.voice
+    return 0.35 + 0.35 * abs(math.sin(phase * 9.0)) * (0.6 + 0.4 * math.sin(phase * 1.7))
+
+
+def voice_now(cmds, now=None):
+    """His voice's loudness while fresh, else None (the projector's speakers fall back to
+    a cadence of their own)."""
+    now = time.monotonic() if now is None else now
+    return cmds.voice if now - cmds.voice_at < VOICE_FRESH_S else None
 
 
 def egl_context():
@@ -202,7 +231,7 @@ def stream(size, fps, cmds, out):
             if cmds.state == "speaking":
                 speak_phase += dt
                 # a talking cadence: syllables over phrases
-                avatar.level = 0.35 + 0.35 * abs(math.sin(speak_phase * 9.0)) * (0.6 + 0.4 * math.sin(speak_phase * 1.7))
+                avatar.level = speaking_level(cmds, speak_phase, now)
             elif cmds.state == "listening":
                 avatar.level = cmds.level
             else:
@@ -387,7 +416,7 @@ def stream_shm(size, fps, cmds, out, shm, projector=None, scale=1.0, stats=False
                 due["portrait"] = 0.0
             if cmds.state == "speaking":
                 speak_phase += dt
-                avatar.level = 0.35 + 0.35 * abs(math.sin(speak_phase * 9.0)) * (0.6 + 0.4 * math.sin(speak_phase * 1.7))
+                avatar.level = speaking_level(cmds, speak_phase, now)
             elif cmds.state == "listening":
                 avatar.level = cmds.level
             else:
@@ -419,6 +448,8 @@ def stream_shm(size, fps, cmds, out, shm, projector=None, scale=1.0, stats=False
                 if gpu is not None:
                     tally["portrait"][1] += gpu
                     tally["portrait"][2] += 1
+            if proj:
+                proj.voice = voice_now(cmds, now)
             if proj and now >= due["projector"]:
                 t = clocks["projector"](now - t0, mode)
                 timers["projector"].begin()

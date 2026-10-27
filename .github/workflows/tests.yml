@@ -57,6 +57,9 @@ jobs:
       - name: Attachments (never a secret, data not instructions, references only)
         run: python3 tools/test-attach.py
 
+      - name: He speaks with his real voice (the portrait's voice, the projector's speakers)
+        run: python3 tools/test-talk.py
+
       - name: The launcher
         run: |
           python3 tools/test-launcher-verbs.py
