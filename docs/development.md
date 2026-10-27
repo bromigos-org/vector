@@ -82,6 +82,7 @@ to `main` (`.github/workflows/tests.yml`). VECTOR's merge tool waits for them.
 | `test-privacy-guard.py` | The privacy guard's sops check (the package build runs it) |
 | `test-claude.py` | Claude Code's records: read only, redacted, follow mode, on made-up transcripts (CI runs it) |
 | `test-attach.py` | Attachments: kinds, secrets refused, caps, images, the message for each brain, the socket's check and `ask --file` (CI runs it) |
+| `test-talk.py` | He speaks with his real voice: the portrait stream's `voice`, its fall back to a cadence, and the projector's speaking contacts, without GL (CI runs it) |
 
 **Offscreen renders.** These need an EGL device and run with `python3`. They never open a
 window.

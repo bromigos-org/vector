@@ -19,8 +19,12 @@ private file except the images a projection names. The kinds:
   world    the world's own model, slow and dim (the idle projection). {"model": name}
            picks one; without it, the world in force's (holo/worlds.py), else VECTOR's.
   contact  a person: their portrait card (or their initial) over a small table, with their
-           words. {"who", "text", "meta", "eyebrow", "portrait": path|null, "call": bool}.
-           A call rings: rings run out from the table.
+           words. {"who", "text", "meta", "eyebrow", "portrait": path|null, "call": bool,
+           "talk": {"state": "speaking", "for": seconds}|null}. A call rings: rings run out
+           from the table. A contact that talks speaks for `for` seconds from its arrival
+           (all the time without it): waveform rings run out with the voice, the card
+           flares and lifts with it. The voice is the `voice` the caller feeds the stream
+           while it's fresh (Projector.voice), else a talking cadence.
   card     a picture someone sent, as a card on the table. {"image": path, "eyebrow",
            "title", "caption", "meta"}
   lab      the lab in miniature: machines as racks (height by kind, an inner column at
@@ -299,6 +303,7 @@ class Projector:
         self.meta = {}
         self.calm = False
         self.still = False
+        self.voice = None                  # the voice's loudness now, 0..1, or None
 
     # ------------------------------------------------------------ state
     def set(self, spec):
@@ -321,10 +326,24 @@ class Projector:
         k = self.spec.get("kind")
         if self.age(now) < BUILD_S + 0.6:
             return fps
-        moving = (k == "contact" and self.spec.get("call")) \
+        moving = (k == "contact" and (self.spec.get("call") or self.talking(now))) \
             or (k == "lab" and any(m.get("level") == "crit" for m in self.spec.get("machines", []))) \
             or (k == "media" and not self.spec.get("paused"))
         return min(fps, 15) if moving else min(fps, 10)
+
+    def talking(self, now=None):
+        """Whether the contact on the projector is speaking right now."""
+        talk = self.spec.get("talk")
+        if not isinstance(talk, dict) or talk.get("state") != "speaking":
+            return False
+        span = talk.get("for")
+        return not isinstance(span, (int, float)) or self.age(now) < float(span)
+
+    def voice_level(self, t):
+        """The voice now: the caller's while fresh, else syllables over phrases."""
+        if self.voice is not None:
+            return max(0.0, min(1.0, float(self.voice)))
+        return 0.3 + 0.45 * abs(math.sin(t * 9.0)) * (0.6 + 0.4 * math.sin(t * 1.7))
 
     def busy(self, now=None):
         return self.rate(30, now) > 10
@@ -622,12 +641,14 @@ class Projector:
         self.camera(dist=2.1, pitch=0.30, aim_y=0.26, aim_x=0.36)
         self.table(t, fade, radius=0.34, power=1.1 if call else 0.85, cone_h=0.12)
         reveal = 1.0 if self.calm else ease((age - 0.15) / 0.9)
+        talking = self.talking()
+        v = (0.5 if self.calm else self.voice_level(t)) if talking else 0.0
         h = 0.5
         sway = 0.0 if self.calm else 0.10 * math.sin(t * 0.6)
-        bob = 0.0 if self.calm else 0.008 * math.sin(t * 1.4)
+        bob = 0.0 if self.calm else 0.008 * math.sin(t * 1.4) + 0.02 * v
         mm = hgl.translate(0, 0.07 + bob, 0) @ hgl.rot_y(sway) @ hgl.translate(-h / 2, 0, 0) @ hgl.scale(h)
         path = spec.get("portrait")
-        a = fade * (1.0 if self.calm else 0.85 + 0.15 * flick(t, 2, 23))
+        a = fade * (1.0 if self.calm else 0.85 + 0.15 * flick(t, 2, 23)) * (1.0 + 0.6 * v)
         drawn = bool(path) and self.card.draw(self.holo, path, mm, "phosphor", a=a, reveal=reveal, lines=110,
                                              crop="square", calm=self.calm)
         if not drawn:                       # no portrait: their initial on a codec card
@@ -649,6 +670,14 @@ class Projector:
                 if self.calm and k:
                     break
                 self.lines(ring(0.3 + 0.35 * f, 0.004, 96), rgba("phosphor", 1.6 * (1 - f) * fade, (1 - f) * fade), width=1.3)
+        elif talking:
+            # Speaking: waveform rings out from the table with the voice, faster as it rises.
+            for k in range(3):
+                f = 0.5 if self.calm else (t * (0.6 + 1.2 * v) + k / 3) % 1.0
+                if self.calm and k:
+                    break
+                k_ = (0.35 + 0.9 * v) * (1 - f)
+                self.lines(ring(0.3 + 0.28 * f, 0.004, 96), rgba("phosphor", 1.4 * k_ * fade, k_ * fade), width=1.2)
         ti = 1.0 if self.calm else ease((age - 0.6) / 0.5)
         x = 244
         who = clip(spec.get("who", ""), 12).upper()
