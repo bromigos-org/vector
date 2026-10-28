@@ -56,7 +56,7 @@ HOLO_FILES = ["holo/vector/" + f for f in (
     "shell.py", "guard.py", "build.py", "buildtask.py", "tools.py", "act.py", "vault.py", "track.py", "nolgia.py",
     "desk.py", "reach.py", "brain.py", "brain_pai.py", "mcp_server.py", "persona.py", "skills.py", "events.py",
     "memory.py", "browser.py", "plugins.py", "llm.py", "create.py", "money.py")] + [
-    "tools/test-shell.py", "tools/test-act.py", "tools/test-desk.py", "tools/test-build.py", "tools/test-browser.py",
+    "tools/test-shell.py", "tools/test-sandbox.py", "tools/test-act.py", "tools/test-desk.py", "tools/test-build.py", "tools/test-browser.py",
     "tools/test-ext-guard.py", "tools/test-plugin-systems.py",           # (the real-money config's test)
     "bin/bromigos-holo", "nolgia.json", "holo/app.py", "holo/paths.py",
     "tools/holo/gen3d.py", "tools/holo/collection.py",      # gen3d spends credits; collection says where models go

@@ -160,6 +160,33 @@ These are read-only:
 - his own terminal logs, and the guard's audit log
 - the emergency switch's folders, and the cgroup files under `/sys/fs/cgroup`
 
+The rest of your home stays writable for him. His changes go through git, as before.
+
+His runtime folder (`$XDG_RUNTIME_DIR`) is private: an empty folder of his own. The
+desktop's control sockets aren't in it, because each of them can start programs outside
+the sandbox or type into your terminals. That covers systemd's own socket and the session
+bus, your SSH, GPG and keyring agents, Claude Code's sockets and VECTOR's daemon. These
+come back into it:
+
+- his own SSH agent
+- sound (PipeWire and PulseAudio), and the live layer's and widgets' sockets
+- the emergency switch's folder, read-only
+- a read-only view of systemd and logind (`xdg-dbus-proxy`). `systemctl status`,
+  `list-units`, `show` and `loginctl` work, and so does locking the screen. Starting,
+  stopping, unlocking and changing settings are refused. A small `systemctl` wrapper
+  sends `systemctl --user` through this view.
+- a read-only view of Hyprland. `hyprctl` queries work, such as `monitors`, `clients`,
+  `layers` and `configerrors`. `dispatch`, `keyword`, `eval` and `reload` are refused.
+  Windows and apps go through his desktop tools, and Hyprland's settings through his
+  build loop.
+
+These are masked: Docker's socket (Docker is root, in effect), the X server's sockets,
+tmux's sockets and herdr's socket. A GUI program he starts (`run_detached`) keeps the
+display, Wayland and X.
+
+Claude Code's session logs (`~/.claude/projects`) stay readable in his sandbox. You
+decided on 2026-10-27 that VECTOR may read them.
+
 The credentials he does get:
 
 - git and SSH use an SSH agent of his own. VECTOR loads your key into it from outside the

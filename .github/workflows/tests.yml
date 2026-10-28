@@ -25,7 +25,7 @@ jobs:
       - name: Sandbox and Python packages
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y -qq bubblewrap desktop-file-utils poppler-utils >/dev/null
+          sudo apt-get install -y -qq bubblewrap xdg-dbus-proxy desktop-file-utils poppler-utils >/dev/null
           sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0 || true
           python3 -m pip install --quiet --user 'bashlex==0.18' psutil pyyaml numpy pillow
 
@@ -34,6 +34,9 @@ jobs:
 
       - name: His clones and the merge tool's limits
         run: python3 tools/test-devflow.py
+
+      - name: His sandbox's runtime folder and sockets
+        run: python3 tools/test-sandbox.py
 
       - name: The privacy guard
         run: python3 tools/test-privacy-guard.py

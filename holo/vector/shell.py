@@ -29,7 +29,10 @@ command logged. The limits are here, in code, and covered by tools/test-shell.py
    off|on`, SUPER+CTRL+ESCAPE, the bar, Settings) kills every process of that slice; while
    it's off nothing runs, and only the operator turns it back on (check refuses every way
    of doing it). Barge-in or STOP kills the running command's scope.
-5. Audit: ~/.local/state/bromigos/vector-shell.log, one JSON line per command or refusal.
+5. The sandbox (bubblewrap): secrets masked, his safety code read-only, a private runtime
+   folder with read-only views of systemd, logind and Hyprland, and Docker's, X's, tmux's
+   and herdr's sockets masked (tools/test-sandbox.py).
+6. Audit: ~/.local/state/bromigos/vector-shell.log, one JSON line per command or refusal.
    An Ansible playbook that touches Vault, a real-money system or venue secrets is also written to
    vector-sensitive.log and announced aloud (on_notice) before it runs.
 """
@@ -139,6 +142,17 @@ def ssh_agent():
 # everything the desktop's daemons run are read-only. The rest of the machine is his as before:
 # the admin and vector-operator kubeconfigs, ansible, SSH and git push through his own agent.
 # The tool layer (outside this sandbox) still reads the keys it needs.
+#
+# His runtime folder ($XDG_RUNTIME_DIR) is private: an empty tmpfs, so none of the desktop's
+# control sockets reach him (systemd's private socket and the session bus, both of which start
+# programs outside the sandbox; the operator's SSH, GPG and keyring agents; Claude Code's).
+# What his commands use comes back one by one (RUNTIME_SHARE): his own SSH agent, sound, the
+# desktop's live layer and widgets, the switch's folder (read-only), and read-only views:
+# systemd and logind through xdg-dbus-proxy (status, lists, properties, locking the screen;
+# never start, stop, unlock or set), and Hyprland through a filter of our own (queries; never
+# dispatch, keyword, eval or reload). Docker's socket (root, in effect), the X server's, tmux's
+# and herdr's (they type into the operator's terminals) are masked. A GUI program he starts
+# (run_detached) gets the display back: Wayland and X.
 SECRET_HOME_FILES = [".vault-token", ".netrc", ".git-credentials", ".pgpass", ".npmrc", ".pypirc", ".docker/config.json",
                      ".claude/.credentials.json", ".claude.json", ".config/gh/hosts.yml", ".local/share/opencode/auth.json",
                      ".pulumi/credentials.json", ".terraform.d/credentials.tfrc.json", ".config/bromigos/private/env",
@@ -222,6 +236,275 @@ def is_masked(path):
     files, dirs = masks()
     return p in {os.path.realpath(f) for f in files} or any(
         p == os.path.realpath(d) or p.startswith(os.path.realpath(d) + os.sep) for d in dirs)
+
+
+# ------------------------------------------------------------------ the private runtime folder
+RUNTIME = os.environ.get("XDG_RUNTIME_DIR") or f"/run/user/{os.getuid()}"
+PROXY_DIR = os.path.join(RUNTIME, "bromigos-vector-sandbox")     # the filtered sockets (outside his sandbox)
+# what comes back into his private runtime folder: sockets read-write (connect needs it), files read-only
+RUNTIME_SHARE = ["pipewire-0", "pulse/native", "bromigos-live.sock", "bromigos-widgets.sock",
+                 "bromigos-holo-voice.sock"]
+RUNTIME_READ = ["bromigos-vector.json", "bromigos-vector-events.jsonl", "bromigos-widgets-health.json",
+                "bromigos-live.pid", "bromigos-live-plugins.json"]
+SYSTEM_BUS = "/run/dbus/system_bus_socket"
+DOCKER_SOCKS = ["/run/docker.sock", "/run/podman/podman.sock"]   # /var/run is /run
+SYSTEM_SYSD, SYSTEM_LOGIN = "org.freedesktop.systemd1", "org.freedesktop.login1"
+# systemd, read-only: what `systemctl [--user] status|show|cat|is-*|list-*` needs
+SYSD_READS = ["GetUnit", "LoadUnit", "GetUnitByPID", "GetUnitByInvocationID", "GetUnitProcesses", "ListUnits",
+              "ListUnitsFiltered", "ListUnitsByPatterns", "ListUnitsByNames", "ListUnitFiles",
+              "ListUnitFilesByPatterns", "GetUnitFileState", "GetUnitFileLinks", "ListJobs", "GetJob",
+              "GetDefaultTarget"]
+# logind, read-only, and locking the screen (never unlocking it): what `loginctl` reads need
+LOGIN_READS = ["ListSessions", "ListSessionsEx", "ListUsers", "ListSeats", "ListInhibitors", "GetSession",
+               "GetSessionByPID", "GetUser", "GetUserByPID", "GetSeat", "CanPowerOff", "CanReboot", "CanSuspend",
+               "CanHibernate", "CanHybridSleep", "CanSuspendThenHibernate", "LockSession", "LockSessions"]
+PROP_ONLY = ["org.freedesktop.hostname1", "org.freedesktop.timedate1", "org.freedesktop.locale1",
+             "org.freedesktop.timesync1", "org.freedesktop.UPower", "org.freedesktop.NetworkManager"]
+_READ_IFACES = ["org.freedesktop.DBus.Properties.Get", "org.freedesktop.DBus.Properties.GetAll",
+                "org.freedesktop.DBus.Introspectable.Introspect", "org.freedesktop.DBus.Peer.Ping"]
+_DBUS = {"proc": None, "keep": None, "socks": {}}
+
+
+def _object_reads(name, root):
+    return [f"--call={name}={m}@{p}" for m in _READ_IFACES for p in (root, root + "/*")]
+
+
+def _bus_rules(system):
+    rules = _object_reads(SYSTEM_SYSD, "/org/freedesktop/systemd1")
+    rules += [f"--call={SYSTEM_SYSD}=org.freedesktop.systemd1.Manager.{m}@/org/freedesktop/systemd1" for m in SYSD_READS]
+    if system:
+        rules += _object_reads(SYSTEM_LOGIN, "/org/freedesktop/login1")
+        rules += [f"--call={SYSTEM_LOGIN}=org.freedesktop.login1.Manager.{m}@/org/freedesktop/login1"
+                  for m in LOGIN_READS]
+        rules += [f"--call={SYSTEM_LOGIN}=org.freedesktop.login1.Session.Lock@/org/freedesktop/login1/session/*"]
+        for name in PROP_ONLY:
+            rules += [f"--call={name}={m}@/*" for m in _READ_IFACES]
+    return rules
+
+
+def _alive_sock(path):
+    import socket as _socket
+    s = _socket.socket(_socket.AF_UNIX)
+    s.settimeout(0.5)
+    try:
+        s.connect(path)
+        return True
+    except OSError:
+        return False
+    finally:
+        s.close()
+
+
+def _proxy_dir():
+    """PROXY_DIR made (0700); other processes' dead sockets cleared."""
+    os.makedirs(PROXY_DIR, mode=0o700, exist_ok=True)
+    os.chmod(PROXY_DIR, 0o700)
+    for n in os.listdir(PROXY_DIR):
+        m = re.match(r"(\d+)-", n)
+        if m and int(m.group(1)) != os.getpid() and not os.path.exists(f"/proc/{m.group(1)}"):
+            try:
+                os.unlink(os.path.join(PROXY_DIR, n))
+            except OSError:
+                pass
+    return PROXY_DIR
+
+
+def dbus_proxy():
+    """The read-only views of the user bus (systemd) and the system bus (systemd, logind and a
+    few properties) for his sandbox: one xdg-dbus-proxy, started here (outside the sandbox) once
+    and kept. -> {"user": socket, "system": socket} for the buses there are; {} without
+    xdg-dbus-proxy (then his sandbox has no bus at all)."""
+    import shutil
+    p = _DBUS["proc"]
+    if p is not None and p.poll() is None and all(_alive_sock(s) for s in _DBUS["socks"].values()):
+        return dict(_DBUS["socks"])
+    if p is not None and p.poll() is None:
+        p.kill()
+    _DBUS.update(proc=None, socks={})
+    if not shutil.which("xdg-dbus-proxy"):
+        return {}
+    try:
+        d = _proxy_dir()
+    except OSError:
+        return {}
+    socks, argv = {}, []
+    for kind, src in (("user", os.path.join(RUNTIME, "bus")), ("system", SYSTEM_BUS)):
+        if os.path.exists(src):
+            dst = os.path.join(d, f"{os.getpid()}-{kind}-bus")
+            if os.path.lexists(dst):
+                os.unlink(dst)
+            socks[kind] = dst
+            argv += [f"unix:path={src}", dst, "--filter"] + _bus_rules(kind == "system")
+    if not socks:
+        return {}
+    try:                   # --fd: it stops when this process does (the pipe's other end closes with it)
+        r, w = os.pipe()
+        _DBUS["proc"] = subprocess.Popen(["xdg-dbus-proxy", f"--fd={r}"] + argv, stdin=subprocess.DEVNULL,
+                                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                                         start_new_session=True, pass_fds=(r,))
+        os.close(r)
+        if _DBUS["keep"] is not None:
+            os.close(_DBUS["keep"])
+        _DBUS["keep"] = w
+    except OSError:
+        return {}
+    for _ in range(60):
+        if all(_alive_sock(s) for s in socks.values()):
+            _DBUS["socks"] = socks
+            return dict(socks)
+        time.sleep(0.05)
+    return {}
+
+
+# Hyprland, read-only: hyprctl's queries pass, everything else (dispatch, keyword, eval, reload,
+# kill, plugin, notify, setprop, output, a [[BATCH]]) is answered with a refusal and never sent.
+HYPR_READS = {"monitors", "workspaces", "activeworkspace", "workspacerules", "clients", "devices", "decorations",
+              "binds", "activewindow", "layers", "splash", "getoption", "cursorpos", "animations", "instances",
+              "layouts", "configerrors", "rollinglog", "locked", "descriptions", "version", "globalshortcuts",
+              "systeminfo", "getprop", "submap", "dpms-info", "sessions"}
+HYPR_REFUSAL = ("VECTOR's sandbox: hyprctl reads only here ({verb} changes the desktop). Windows and apps go "
+                "through his desktop tools; Hyprland's config through build_start.")
+_HYPR = {}
+
+
+def hypr_request_ok(req):
+    """(allowed, verb) for a request on Hyprland's socket: `[flags]/command args`."""
+    text = req.decode("utf-8", "replace").strip()
+    if "[[BATCH]]" in text:
+        return False, "[[BATCH]]"
+    m = re.match(r"^([a-z]{0,8})/(.*)$", text, re.S)
+    cmd = (m.group(2) if m else text).strip()
+    verb = cmd.split(None, 1)[0].lower() if cmd else ""
+    return verb in HYPR_READS, verb or "(empty)"
+
+
+def _hypr_serve(srv, target):
+    import socket as _socket
+
+    def one(c):
+        try:
+            c.settimeout(5)
+            req = c.recv(65536)
+            c.settimeout(0.05)
+            try:
+                while len(req) < 65536:
+                    more = c.recv(65536)
+                    if not more:
+                        break
+                    req += more
+            except (TimeoutError, _socket.timeout, BlockingIOError):
+                pass
+            ok, verb = hypr_request_ok(req)
+            if not ok:
+                c.sendall(HYPR_REFUSAL.format(verb=verb).encode())
+                return
+            u = _socket.socket(_socket.AF_UNIX)
+            u.settimeout(10)
+            try:
+                u.connect(target)
+                u.sendall(req)
+                while True:
+                    b = u.recv(65536)
+                    if not b:
+                        break
+                    c.sendall(b)
+            finally:
+                u.close()
+        except OSError:
+            pass
+        finally:
+            c.close()
+    while True:
+        try:
+            c, _ = srv.accept()
+        except OSError:
+            return
+        threading.Thread(target=one, args=(c,), daemon=True).start()
+
+
+def hypr_proxy(sig):
+    """-> the read-only Hyprland socket for instance `sig` (started here, once, outside the
+    sandbox), or None when that instance has no socket."""
+    import socket as _socket
+    if not sig or "/" in sig:
+        return None
+    target = os.path.join(RUNTIME, "hypr", sig, ".socket.sock")
+    if not os.path.exists(target):
+        return None
+    have = _HYPR.get(sig)
+    if have and os.path.exists(have):
+        return have
+    try:
+        path = os.path.join(_proxy_dir(), f"{os.getpid()}-hypr-{len(_HYPR)}.sock")
+        if os.path.lexists(path):
+            os.unlink(path)
+        srv = _socket.socket(_socket.AF_UNIX)
+        srv.bind(path)
+        os.chmod(path, 0o600)
+        srv.listen(16)
+    except OSError:
+        return None
+    threading.Thread(target=_hypr_serve, args=(srv, target), daemon=True).start()
+    _HYPR[sig] = path
+    return path
+
+
+def _hypr_sig():
+    try:
+        from .. import hyprenv
+        return hyprenv.live()
+    except Exception:
+        return os.environ.get("HYPRLAND_INSTANCE_SIGNATURE")
+
+
+def runtime_args(gui=False):
+    """bubblewrap arguments: his private runtime folder, what comes back into it, the read-only
+    buses and Hyprland, and the masked sockets (docker, X, tmux, herdr). gui: a GUI program
+    (run_detached) keeps the display (Wayland and X)."""
+    a = ["--perms", "0700", "--tmpfs", RUNTIME]
+    for rel in RUNTIME_SHARE:
+        p = os.path.join(RUNTIME, rel)
+        if os.path.exists(p):
+            a += ["--bind", p, p]
+    for rel in RUNTIME_READ:
+        p = os.path.join(RUNTIME, rel)
+        if os.path.isfile(p):
+            a += ["--ro-bind", p, p]
+    if os.path.exists(AGENT_SOCK):                   # his own SSH agent (the key file stays masked)
+        a += ["--bind", AGENT_SOCK, AGENT_SOCK]
+    buses = dbus_proxy()
+    if "user" in buses:
+        a += ["--bind", buses["user"], os.path.join(RUNTIME, "bus")]
+    if os.path.exists(SYSTEM_BUS):                   # the system bus: the read-only view, else none at all
+        a += ["--bind", buses["system"], SYSTEM_BUS] if "system" in buses else ["--ro-bind", "/dev/null", SYSTEM_BUS]
+    sig = _hypr_sig()
+    hp = hypr_proxy(sig)
+    if hp:
+        d = os.path.join(RUNTIME, "hypr", sig)
+        a += ["--bind", hp, os.path.join(d, ".socket.sock")]
+        ev = os.path.join(d, ".socket2.sock")        # the event stream: it only tells
+        if os.path.exists(ev):
+            a += ["--bind", ev, ev]
+    if gui:
+        for n in sorted(os.listdir(RUNTIME)) if os.path.isdir(RUNTIME) else []:
+            if re.fullmatch(r"wayland-\d+", n):
+                a += ["--bind", os.path.join(RUNTIME, n), os.path.join(RUNTIME, n)]
+    else:
+        for d in ("/tmp/.X11-unix",):
+            if os.path.isdir(d) and not os.path.islink(d):
+                a += ["--tmpfs", d]
+    for d in (f"/tmp/tmux-{os.getuid()}",):
+        if os.path.isdir(d) and not os.path.islink(d):
+            a += ["--tmpfs", d]
+    for s in DOCKER_SOCKS + [os.path.join(HOME, ".config/herdr", n) for n in ("herdr.sock", "herdr-client.sock")]:
+        if os.path.exists(s) and not os.path.islink(s):
+            a += ["--ro-bind", "/dev/null", s]
+    return a
+
+
+# Claude Code's session logs (~/.claude/projects) stay readable in his sandbox: the operator
+# decided on 2026-10-27 that VECTOR may read them (his Claude tools read them too, redacted,
+# claude.py). Don't mask them here without his word.
 
 
 def readonly_paths():
@@ -377,6 +660,28 @@ def _write_shim(d, name, body):
     os.replace(f + ".tmp", f)
 
 
+def _systemctl_shim():
+    """A `systemctl` first on his PATH: `--user` goes through the read-only systemd bus in his
+    runtime folder (with XDG_RUNTIME_DIR set, systemctl --user insists on systemd's private
+    socket, which his sandbox doesn't have). Not a limit itself: the bus is read-only either way."""
+    import shutil
+    d = os.path.join(SANDBOX_ETC, "bin")
+    real = shutil.which("systemctl", path=":".join(p for p in os.environ.get("PATH", "/usr/bin").split(":") if p != d)) \
+        or "/usr/bin/systemctl"
+    body = f'''#!/bin/sh
+# VECTOR's systemctl: --user through his read-only systemd bus. Generated by holo/vector/shell.py.
+for a in "$@"; do
+  if [ "$a" = --user ]; then
+    bus="${{XDG_RUNTIME_DIR:-/run/user/$(id -u)}}/bus"
+    exec env -u XDG_RUNTIME_DIR DBUS_SESSION_BUS_ADDRESS="unix:path=$bus" {real} "$@"
+  fi
+done
+exec {real} "$@"
+'''
+    _write_shim(d, "systemctl", body)
+    return d
+
+
 def sandbox_env(env):
     """His shell's environment inside the sandbox: his own GitHub tokens (never the host's),
     per owner and a default, and the gh shim first on PATH."""
@@ -389,19 +694,21 @@ def sandbox_env(env):
         if t:
             env[_gh_var(name)] = t
     try:
+        _systemctl_shim()
         env["PATH"] = _gh_shim() + ":" + env.get("PATH", "")
     except OSError:
         pass
     return env
 
 
-def jail_argv(argv, writable_only=None, die_with_parent=True):
-    """argv wrapped in the sandbox, or None when bubblewrap is missing (then nothing runs)."""
+def jail_argv(argv, writable_only=None, die_with_parent=True, gui=False):
+    """argv wrapped in the sandbox, or None when bubblewrap is missing (then nothing runs).
+    gui: a GUI program (run_detached), which keeps the display."""
     import shutil
     bw = shutil.which("bwrap")
     if not bw:
         return None
-    cmd = [bw, "--dev-bind", "/", "/"]
+    cmd = [bw, "--dev-bind", "/", "/"] + runtime_args(gui)
     if writable_only:
         dot = os.path.realpath(os.path.join(HOME, ".dotfiles"))
         cmd += ["--ro-bind", dot, dot, "--bind", os.path.join(dot, ".git"), os.path.join(dot, ".git"),

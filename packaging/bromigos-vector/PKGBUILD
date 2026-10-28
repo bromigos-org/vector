@@ -16,7 +16,7 @@ url='https://github.com/bromigos-org/vector'
 license=('MIT OR Apache-2.0')
 depends=('bromigos-core' 'python' 'python-gobject' 'gtk3' 'gtk-layer-shell' 'python-cairo'
          'python-opengl' 'python-numpy' 'python-pillow' 'python-psutil' 'python-yaml'
-         'bubblewrap' 'hyprland')
+         'bubblewrap' 'xdg-dbus-proxy' 'hyprland')
 optdepends=('uv: bromigos-holo setup (fetches Python 3.12 for the voice)'
             'pipewire-audio: his voice and push-to-talk (pw-play, pw-record)'
             'bromigos-live: the holograms, the codec and his place in the live layer'

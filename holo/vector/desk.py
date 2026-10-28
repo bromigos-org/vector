@@ -150,7 +150,7 @@ def run_detached(command, workspace=None):
     shell.check(command)
     if not shell.enabled():
         raise PermissionError(shell.OFF_NOTE)
-    argv = shell.jail_argv(["/bin/sh", "-c", command], die_with_parent=False)   # the same sandbox as his shell
+    argv = shell.jail_argv(["/bin/sh", "-c", command], die_with_parent=False, gui=True)   # his shell's sandbox, with the display
     if argv is None:
         raise PermissionError("the terminal's sandbox (bubblewrap) isn't available, so nothing runs")
     argv, _unit = switch.scope(argv, "detached")   # in his slice: the emergency switch stops it too
