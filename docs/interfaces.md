@@ -139,3 +139,22 @@ tools.
 - It logs every request without the token or the body.
 
 The module's docstring lists its settings. The package doesn't start either server.
+
+## In a terminal, without the desktop (bromigOS Field Kit)
+
+bromigOS's Field Kit and bromigOS Server have no desktop, so the hologram and this package
+don't run there. They have their own terminal screen for VECTOR, in bromigos-core
+(`bromigos fieldkit vector`, the VECTOR section of the Field Kit menu). It reuses what this
+repository defines rather than a second personality:
+
+- **Who he is:** where this package is installed, the screen takes its prompt from
+  `holo/vector/persona.py` (`persona.build()`), up to the desktop's tool rules. Without it, a
+  short summary of the same "who you are" sections, which says where it came from.
+- **The emergency switch:** the same markers `holo/vector/switch.py` reads. Any one present,
+  he can talk but runs nothing; it's checked again just before anything runs.
+- **Hard limits:** never money, never secrets, never the switch, as in [safety.md](safety.md).
+
+What he can do there is narrower than on the desktop: he proposes Field Kit's own repairs,
+each shown with its exact change, and nothing runs until the person approves it on the
+screen. His brain is the lab's model over the local network, or a configured service when
+online. bromigOS's `docs/fieldkit-vector.md` has the details.
