@@ -140,7 +140,8 @@ def _stub(name, args):
         cap = a.get("capability", "image.generate")
         ext = "glb" if cap == "model3d.generate" else "png"
         return {"ok": True, "file": os.path.expanduser(f"~/Pictures/vector/eval.{ext}"), "capability": cap,
-                "provider": "comfyui:homelab", "model": "qwen-image-2.1", "credits": 0, "licence": "Qwen", "seconds": 9}
+                "provider": "comfyui:homelab", "model": "qwen-image-2512", "credits": 0, "licence": "Apache-2.0 (Qwen-Image-2512)",
+                "seconds": 9}
     if name == "make_hologram":
         n = a.get("name", "model")
         return {"ok": True, "name": n, "glb": f"/tmp/{n}.glb", "provider": "comfyui:homelab", "credits": 0,

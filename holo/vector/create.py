@@ -178,7 +178,7 @@ def _make(cap, out, prompt=None, inputs=(), mask=None, aspect=None):
     res["seconds"] = res.get("seconds") or round(time.monotonic() - t0, 1)
     _log({"t": dt.datetime.now().astimezone().isoformat(timespec="seconds"), "capability": cap,
           "provider": res.get("provider"), "model": res.get("model"), "credits": 0, "licence": res.get("licence"),
-          "out": res.get("out") or out, "seconds": res["seconds"]})
+          "warning": res.get("warning"), "out": res.get("out") or out, "seconds": res["seconds"]})
     return res
 
 
@@ -205,8 +205,11 @@ def create(capability, prompt=None, inputs=None, mask=None, aspect=None, name=No
         return res
     f = res.get("out") or out
     _show(f, f"{capability} · {res.get('model')} · homelab")
-    return {"ok": os.path.exists(f), "file": f, "capability": capability, "provider": res.get("provider"),
+    made = {"ok": os.path.exists(f), "file": f, "capability": capability, "provider": res.get("provider"),
             "model": res.get("model"), "credits": 0, "licence": res.get("licence"), "seconds": res.get("seconds")}
+    if res.get("warning"):          # a non-commercial workflow (bromigos art make says which)
+        made["warning"] = res["warning"]
+    return made
 
 
 def make_hologram(name, subject=None, image=None):
