@@ -33,14 +33,17 @@ out = a[a.index("--out") + 1]
 os.makedirs(os.path.dirname(out), exist_ok=True)
 open(out, "wb").write(b"x")
 prov = "nolgia" if mode == "paid" else a[a.index("--provider") + 1]
-print(json.dumps({{"capability": a[2], "provider": prov, "model": "wf", "out": out,
-                  "credits": 5 if mode == "paid" else 0, "licence": "test", "seconds": 0.1}}))
+res = {{"capability": a[2], "provider": prov, "model": "wf", "out": out,
+       "credits": 5 if mode == "paid" else 0, "licence": "test", "seconds": 0.1}}
+if mode == "noncommercial":
+    res["warning"] = "wf is non-commercial: research and evaluation only (test). Don't ship or sell what it makes"
+print(json.dumps(res))
 """)
 os.chmod(STUB, os.stat(STUB).st_mode | stat.S_IEXEC)
 CONF_LAB = os.path.join(TMP, "create.toml")
 with open(CONF_LAB, "w") as f:
     f.write('format = 1\n[comfyui.homelab]\nendpoint = "@homelab:comfyui"\n'
-            '[image.generate]\nproviders = ["comfyui:homelab", "none"]\ncomfyui = "qwen-image-2.1"\n'
+            '[image.generate]\nproviders = ["comfyui:homelab", "none"]\ncomfyui = "qwen-image-2512"\n'
             '[image.cutout]\nproviders = ["comfyui:homelab", "none"]\ncomfyui = "lucida"\n'
             '[model3d.generate]\nproviders = ["comfyui:homelab", "none"]\ncomfyui = "pixal3d"\n'
             '[video.loop]\nproviders = ["nolgia"]\n')
@@ -95,6 +98,7 @@ if not LIVE:
     check("caps credits at 0", c and c[0][c[0].index("--max-credits") + 1] == "0", c)
     check("never asks nolgia", all("nolgia" not in a for a in c), c)
     check("the file lands under OUT_ROOT", r.get("file", "").startswith(create.OUT_ROOT), r)
+    check("an Apache-2.0 result carries no warning", "warning" not in r, r)
 
     reset()
     os.environ["STUB_MODE"] = "down"
@@ -102,6 +106,11 @@ if not LIVE:
     c = calls()
     check("homelab down: refuses", "refused" in r, r)
     check("homelab down: tried the homelab once, nothing else", len(c) == 1 and "nolgia" not in c[0], c)
+
+    reset()
+    os.environ["STUB_MODE"] = "noncommercial"
+    r = create.create("image.generate", prompt="a red cube", name="t")
+    check("a non-commercial model's warning reaches him", "non-commercial" in r.get("warning", ""), r)
 
     reset()
     os.environ["STUB_MODE"] = "paid"

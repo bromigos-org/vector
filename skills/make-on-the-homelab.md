@@ -10,14 +10,18 @@ The homelab's ComfyUI makes things for free. Everything you make goes there:
 
 | capability | what it makes | needs | homelab model |
 |---|---|---|---|
-| `image.generate` | a new image | a prompt (optional reference images) | Qwen-Image 2.1 |
-| `image.edit` | a changed image | a prompt and the image (optional mask: transparent = may change) | Qwen-Image 2.1 |
+| `image.generate` | a new image | a prompt (no reference images: to start from a picture, edit it) | Qwen-Image-2512 |
+| `image.edit` | a changed image | a prompt and the image (optional mask: transparent = may change) | Qwen-Image-Edit-2511 |
 | `image.cutout` | a transparent PNG of the subject | the image | Lucida |
 | `model3d.generate` | a GLB mesh, stood upright | an image, ideally a cutout | Pixal3D (shape only) |
 | `video.loop` | — | — | none on the homelab yet |
 
 `create` makes one; the file lands in `~/Pictures/vector/<date>/` and a notice shows it.
 Tell the user what you made, where it is, and that it cost nothing.
+
+The image models are Apache-2.0, so what they make may ship. Never pick Qwen-Image 2.1
+yourself: its licence is non-commercial (research and evaluation only). If a result
+comes back with a `warning`, tell the user what it says.
 
 ## Never pay on your own
 
