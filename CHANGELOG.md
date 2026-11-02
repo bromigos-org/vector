@@ -9,6 +9,28 @@ This repository's history starts at 0.1.2. The commits before it, which the link
 
 <!-- releases: tools/release/release.py adds each release below this line, newest first -->
 
+## [0.1.4] - 2026-11-01
+<!-- release: 0.1.4-rc1 -->
+
+Release candidate v0.1.4-rc1.
+
+Since v0.1.3. Released with bromigOS 0.1.4 (its notes: bromigOS's manual, What's new).
+
+### VECTOR
+
+- holo: the holo projector (holo/projector.py), drawn beside his portrait in one stream over shared memory (portrait.py version 2) ([62ce950](https://github.com/bromigos-org/vector/commit/62ce950e76c0f6ae7d5230d711c0780cbbccb9d9))
+
+### Docs
+
+- docs: VECTOR in Field Kit's terminal (bromigOS Field Kit and Server reuse the persona and the switch) ([f197689](https://github.com/bromigos-org/vector/commit/f19768940ee7e8ec43867247dafc91f468b4e15f))
+
+### Other
+
+- portrait: he speaks with his real voice (`voice`), and projector contacts can talk ([119688a](https://github.com/bromigos-org/vector/commit/119688a43b7311d360c28fa2c7ad6c0642766c12))
+- tools: cast to the house's screens (tv_cast_targets, tv_cast, tv_cast_control, tv_cast_handback) ([ca5468e](https://github.com/bromigos-org/vector/commit/ca5468e1387596f03bffa121091cc99c9366bdcb))
+- sandbox: a private runtime folder for his terminal, read-only views of systemd, logind and Hyprland, and Docker's, X's, tmux's and herdr's sockets masked (#4) ([247ae6b](https://github.com/bromigos-org/vector/commit/247ae6b112cf76c2e7c37cb966aff17882ce004c))
+- create: the homelab's image models are the Apache-2.0 Qwen pair; licence warnings reach him ([1905cdd](https://github.com/bromigos-org/vector/commit/1905cdd968079b19eb2035bf4a930929c490ff5a))
+
 ## [0.1.3] - 2026-10-26
 <!-- release: 0.1.3-rc1 -->
 
