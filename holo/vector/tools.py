@@ -57,8 +57,9 @@ WIDGETS = command("bromigos-widgets", ".config/bromigos/widgets/bromigos-widgets
 WALLPAPER = os.path.join(HOME, ".config/bromigos/bin/bromigos-wallpaper")
 LIVE = command("bromigos-live", ".config/bromigos-live/bin/bromigos-live")
 ORG = "bromigos-org"
+DOTFILES = os.path.join(HOME, ".dotfiles")
 DOC_ROOTS = [os.path.join(HOME, "github.com/bromigos-org"), os.path.join(HOME, "github.com/nolgiainc"),
-             os.path.join(HOME, "github.com/blackflame007"), os.path.join(HOME, ".dotfiles")]
+             os.path.join(HOME, "github.com/blackflame007"), DOTFILES]
 DOC_EXT = (".md", ".json", ".yaml", ".yml", ".txt", ".toml")
 SECRETISH = re.compile(r"(secret|token|credential|password|passwd|\.env|private|\.key$|\.pem$|kubeconfig|vault|zsh-secrets)", re.I)
 SKIP_DIRS = {".git", "node_modules", ".venv", "venv", "__pycache__", "dist", "build", ".next", "target", "private"}
@@ -187,7 +188,7 @@ def docs_search(query, repo=None, limit=12):
     q = query.lower().strip()
     if len(q) < 3:
         raise ValueError("query too short")
-    roots = DOC_ROOTS if not repo else [os.path.join(DOC_ROOTS[0], repo) if repo != "dotfiles" else DOC_ROOTS[1]]
+    roots = DOC_ROOTS if not repo else [DOTFILES if repo == "dotfiles" else os.path.join(DOC_ROOTS[0], repo)]
     hits, scanned = [], 0
     t0 = time.monotonic()
     for root in roots:

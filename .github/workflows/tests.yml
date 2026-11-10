@@ -63,6 +63,9 @@ jobs:
       - name: He speaks with his real voice (the portrait's voice, the projector's speakers)
         run: python3 tools/test-talk.py
 
+      - name: His docs tools (every docs root, the dotfiles alone, nothing secret-looking)
+        run: python3 tools/test-docs-tools.py
+
       - name: The launcher
         run: |
           python3 tools/test-launcher-verbs.py
