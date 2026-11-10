@@ -169,13 +169,14 @@ ok(all(n in tools.CORE or n in tools.HIDDEN for n in ("media_search", "media_get
                                                      "media_recent", "media_language")), "the tools are in the table")
 ok({"media_search", "media_status", "media_upcoming", "media_recent"} <= tools.WHILE_OFF and
    not {"media_get", "media_delete"} & tools.WHILE_OFF, "switched off: reads only")
-try:
-    from holo.vector import mcp_server  # noqa: E402  (needs the mcp package: the brain's venv)
-except ImportError:
-    print("skip  MCP lists (no mcp package here)")
-else:
-    ok("media_get" in mcp_server.ACT and "media_get" not in mcp_server.READ_ONLY, "MCP: media_get is an action")
-    ok("media_delete" not in mcp_server.ACT + mcp_server.READ_ONLY, "MCP: no media_delete (the phone never deletes)")
+# mcp_server.py needs the mcp package (the brain's venv) to import, so its lists are read from
+# its source: these checks run wherever the test does, CI included
+import ast  # noqa: E402
+with open(os.path.join(os.path.dirname(HERE), "holo/vector/mcp_server.py")) as f:
+    lists = {t.id: ast.literal_eval(n.value) for n in ast.parse(f.read()).body if isinstance(n, ast.Assign)
+             for t in n.targets if isinstance(t, ast.Name) and t.id in ("READ_ONLY", "ACT")}
+ok("media_get" in lists["ACT"] and "media_get" not in lists["READ_ONLY"], "MCP: media_get is an action")
+ok("media_delete" not in lists["ACT"] + lists["READ_ONLY"], "MCP: no media_delete (the phone never deletes)")
 
 print("FAILED" if BAD[0] else "all passed")
 sys.exit(1 if BAD[0] else 0)
