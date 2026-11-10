@@ -66,7 +66,6 @@ to `main` (`.github/workflows/tests.yml`). VECTOR's merge tool waits for them.
 
 | Test | What it covers |
 |---|---|
-| `test-shell.py` | The terminal's refusals; allowed commands run in the sandbox |
 | `test-act.py` | Homelab action and money refusals (`--live` reaches the cluster) |
 | `test-switch.py` | The emergency switch (off stops his sandbox, with the daemon killed or hung; only you switch him on) and the guard's audit |
 | `test-ext-guard.py` | Extensions and the sentinel's audit |
@@ -83,6 +82,13 @@ to `main` (`.github/workflows/tests.yml`). VECTOR's merge tool waits for them.
 | `test-claude.py` | Claude Code's records: read only, redacted, follow mode, on made-up transcripts (CI runs it) |
 | `test-attach.py` | Attachments: kinds, secrets refused, caps, images, the message for each brain, the socket's check and `ask --file` (CI runs it) |
 | `test-talk.py` | He speaks with his real voice: the portrait stream's `voice`, its fall back to a cadence, and the projector's speaking contacts, without GL (CI runs it) |
+
+**This one reads your own machine and network.** It changes nothing of yours. It passes only
+on a machine with a `~/.dotfiles` repository, an SSH key GitHub knows and a cluster to reach.
+
+| Test | What it does |
+|---|---|
+| `test-shell.py` | Checks the terminal's refusals without running them. Then it runs allowed commands for real, in his sandbox in your own home: `git status` in `~/.dotfiles`, a user unit's status, a paper-trading clock on the internet, GitHub over SSH, your cluster's namespaces and `gh auth status` |
 
 **Offscreen renders.** These need an EGL device and run with `python3`. They never open a
 window.
