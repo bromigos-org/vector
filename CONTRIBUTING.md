@@ -5,8 +5,7 @@ assistant, with a voice, and this repository is his package, `bromigos-vector`. 
 covers how to build and test a change, how to write its commits, and how his safety rules
 shape what you can send.
 
-VECTOR is in early access, and this repository is private. If you can read this, you have
-access.
+VECTOR is in early access.
 
 ## Before you start
 
