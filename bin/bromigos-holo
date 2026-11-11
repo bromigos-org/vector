@@ -27,7 +27,11 @@
 #   bromigos-holo stop [now]         stop the daemon after the current turn (90 s at most), or now
 #   bromigos-holo restart [now]      the same, then start it again
 #   bromigos-holo evals [--only CAT] [--task ID] [--list]   run VECTOR's eval suite now (headless)
-#   bromigos-holo setup [brain|voice|voice-cpu]   make his Python environments (~/.local/share/bromigos/venv-*)
+#   bromigos-holo setup [brain|voice|voice-cpu|local-voice]   make his Python environments (~/.local/share/bromigos/venv-*);
+#                                    local-voice: the local voice's runtime and models (on an NVIDIA card)
+#   bromigos-holo local-voice [on|off|auto|status [--json]]   his voice on this machine's graphics card: the
+#                                    setting (auto: on with an NVIDIA card with room) and where he speaks from now;
+#                                    never starts him
 set -u
 HERE="$(cd "$(dirname "$(readlink -f "$0")")/.." && pwd)"
 RUN="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
@@ -91,8 +95,8 @@ setup() {
     local what="$1" venv req py
     case "$what" in
         brain) venv="$HOME/.local/share/bromigos/venv-brain"; req="$HERE/requirements/brain.txt"; py=/usr/bin/python3 ;;
-        voice|voice-cpu) venv="$HOME/.local/share/bromigos/venv-tts"; req="$HERE/requirements/$what.txt"; py=3.12 ;;
-        *) echo "bromigos-holo setup brain|voice|voice-cpu" >&2; return 2 ;;
+        voice|voice-cpu|local-voice) venv="$HOME/.local/share/bromigos/venv-tts"; req="$HERE/requirements/$what.txt"; py=3.12 ;;
+        *) echo "bromigos-holo setup brain|voice|voice-cpu|local-voice" >&2; return 2 ;;
     esac
     [ -f "$req" ] || { echo "bromigos-holo: no $req" >&2; return 1; }
     if command -v uv >/dev/null; then
@@ -102,6 +106,10 @@ setup() {
     else
         [ "$what" = brain ] || { echo "bromigos-holo: the voice needs Python 3.12; install uv (pacman -S uv)" >&2; return 1; }
         /usr/bin/python3 -m venv --system-site-packages "$venv" && "$venv/bin/pip" install -r "$req" || return 1
+    fi
+    if [ "$what" = voice ] || [ "$what" = local-voice ]; then
+        # the local voice's models, pinned by sha256, into ~/.cache/bromigos/local-voice
+        /usr/bin/python3 -I "$HERE/holo/local_models.py" fetch || return 1
     fi
     echo "bromigos-holo: $what ready in $venv"
 }
@@ -246,6 +254,7 @@ EOF
         fi ;;
     log) tail -n 40 "$LOG" ;;
     setup) shift; setup "${1:-brain}" ;;
+    local-voice) shift; exec /usr/bin/python3 -I "$HERE/holo/local_voice_state.py" "${@:-status}" ;;
     evals) shift; cd "$HERE" && exec nice -n 10 "$PY" -m evals.run "$@" ;;
     work) shift; cd "$HERE" && exec "$PY" -m holo.vector.devflow "$@" ;;
     *) awk 'NR > 1 && !/^#/ { exit } NR > 1' "$0"; exit 1 ;;
