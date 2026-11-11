@@ -1,5 +1,5 @@
 {
-  "_comment": "VECTOR's voice: the package's defaults (bromigos-vector). Your own goes in ~/.config/bromigos/vector/voice.json and replaces this file whole. engine qwen speaks from a reference recording (the designed caretaker voice, voices/vector-ref-A.wav, when a role has none; Qwen3-TTS in ~/.local/share/bromigos/venv-tts, `bromigos-holo setup voice`); kokoro is the CPU fallback. lanes: the brain's models (empty: llm.py's default for your endpoint).",
+  "_comment": "VECTOR's voice: the package's defaults (bromigos-vector). Your own goes in ~/.config/bromigos/vector/voice.json and replaces this file whole. engine qwen speaks from a reference recording (the designed caretaker voice, voices/vector-ref-A.wav, when a role has none; Qwen3-TTS in ~/.local/share/bromigos/venv-tts, `bromigos-holo setup voice`); kokoro is the CPU fallback. local (the local voice: Qwen3-TTS 0.6B as 8-bit GGUF on an NVIDIA card, Parakeet on the processor for hearing) goes before all of them while it's on: `bromigos-holo local-voice on|off|auto`, Settings › VECTOR; auto turns it on with an NVIDIA card of 8 GB or more. lanes: the brain's models (empty: llm.py's default for your endpoint).",
   "engine": "lab",
   "fallback": [
     "qwen",
@@ -78,5 +78,16 @@
     "stream_timeout_s": 10,
     "chunk_size": 4,
     "temperature": 0.7
+  },
+  "local": {
+    "_comment": "The local voice (holo/local_voice.py). It starts on his first speech, leaves after idle_exit_s with nothing to say, and leaves at once while a game runs (GameMode, a Steam game, a fullscreen window, a GPU process not on the allowlist: holo/gamewatch.py), coming back game_clear_s after it ends. gpu_allow: more command-line patterns (regular expressions) that don't count as a game; gpu_min_mib: smaller GPU users don't count either. Its models: holo/local_models.py, fetched into ~/.cache/bromigos/local-voice.",
+    "idle_exit_s": 600,
+    "game_clear_s": 30,
+    "min_vram_mib": 8192,
+    "temperature": 0.7,
+    "chunk_size": 4,
+    "first_audio_timeout_s": 2.5,
+    "gpu_min_mib": 64,
+    "gpu_allow": []
   }
 }

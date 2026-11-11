@@ -14,6 +14,16 @@ over a unix socket, one JSON request per connection:
     {"op": "ping"}
 
 Voice (voice.json "engine", then "fallback": one engine or a list, tried in order):
+  local    the local voice (holo/local_voice.py): Qwen3-TTS 0.6B as 8-bit GGUF on this machine's
+           NVIDIA card, Parakeet on the processor for hearing, in a worker process of its own.
+           When it's on (Settings › VECTOR, `bromigos-holo local-voice`; auto: an NVIDIA card
+           with 8 GB or more) it goes first, before everything below, and `qwen` is left out.
+           It starts on his first speech and leaves after ten idle minutes, or at once when a
+           game starts (holo/gamewatch.py), staying away until the game has ended. While it
+           isn't ready the next engine speaks; its lines go through holo/speech_text.py first
+           (numbers spelled out: the small model garbles digits). Its state and where he
+           speaks from: $XDG_RUNTIME_DIR/bromigos-vector-voice.json, `bromigos-holo
+           local-voice status`.
   lab      the homelab's voice service (homelab chart `voice`: the same Qwen3-TTS and Whisper on
            the 5090): each role's reference is uploaded once by content hash, then lines stream
            from POST /v1/tts/stream. The URL is voice.json lab.url, else bromigos-homelab's
@@ -56,7 +66,7 @@ import wave
 
 import numpy as np
 
-from . import targets
+from . import local_voice, local_voice_state, speech_text, targets
 from .private import PRIV
 from .shimmer import SilenceShaper, Shimmer, TimeStretch, dial_scratch
 
@@ -102,7 +112,31 @@ class Server:
         self.last = time.monotonic()
         self.stt_lock = threading.Lock()
         self.tts_lock = threading.Lock()
+        self.speaking_from = None
+        self._status_sig = None
+        self.local = local_voice.Manager(self.cfg, log=log, publish=self.publish)
+        try:
+            self.local.warm_ref = self.ref("main")     # his own voice, warmed before the local voice is ready
+        except Exception:
+            pass
         os.makedirs(CACHE, exist_ok=True)
+
+    def publish(self):
+        """Where he speaks from now, for the status line (local_voice_state.line) and Settings."""
+        doc = {"speaking_from": self.speaking_from or self.next_engine(), "local": self.local.status()}
+        sig = json.dumps(doc, sort_keys=True)
+        if sig != self._status_sig:
+            self._status_sig = sig
+            try:
+                local_voice_state.write_status(doc)
+            except OSError as e:
+                log("voice status not written:", e)
+
+    def next_engine(self):
+        try:
+            return (self._engines(warm=False) or [None])[0]
+        except Exception:
+            return None
 
     # ------------------------------------------------------------------ where he runs
     def order(self):
@@ -125,6 +159,8 @@ class Server:
 
     # ------------------------------------------------------------------ STT
     def warm(self, local=False):
+        if not local and self.local.wanted():
+            self.local.ensure()                        # you're about to talk: start the local voice
         if not local and self.stt_lab() and self.lab_url():
             return {"ok": True, "where": "lab"}         # the lab's whisper is resident; the GPU here stays free
         with self.stt_lock:
@@ -132,8 +168,13 @@ class Server:
                 from faster_whisper import WhisperModel
                 c = self.cfg["stt"]
                 t0 = time.monotonic()
+                device = c.get("device", "cuda")
+                if self.local.state == "away":         # a game holds the card: hear on the processor
+                    device = "cpu"
                 try:
-                    self.whisper = WhisperModel(c["model"], device=c.get("device", "cuda"), compute_type=c.get("compute_type", "float16"))
+                    if device == "cpu":
+                        raise RuntimeError("a game is running")
+                    self.whisper = WhisperModel(c["model"], device=device, compute_type=c.get("compute_type", "float16"))
                 except Exception as e:
                     log("whisper on GPU failed, using CPU:", e)
                     self.whisper = WhisperModel(c["model"], device="cpu", compute_type="int8")
@@ -144,6 +185,12 @@ class Server:
 
     def stt(self, pcm):
         raw = np.fromfile(pcm, dtype=np.int16)
+        if self.local.wanted():
+            t0 = time.monotonic()
+            got = self.local.stt(pcm)
+            if got is not None:
+                return {"text": got, "ms": int((time.monotonic() - t0) * 1000),
+                        "seconds": round(len(raw) / 16000, 2), "where": "local"}
         if self.stt_lab():
             t0 = time.monotonic()
             got = self._lab_stt(raw)
@@ -202,6 +249,11 @@ class Server:
             self.qwen_loading.clear()
 
     def warm_tts(self, local=False):
+        if self.local.wanted():
+            # the local voice replaces the 1.7B one here; it starts on his first speech
+            if self.order()[0] == "lab" and not local:
+                self.warm_lab()
+            return {"ok": True, "ready": True}
         main = self.order()[0]
         if main == "lab" and not local:
             self.warm_lab()
@@ -238,6 +290,10 @@ class Server:
                 text=text, language="English", ref_audio=ref, ref_text=ref_text,
                 chunk_size=c.get("chunk_size", 4), temperature=c.get("temperature", 0.7)):
             yield np.asarray(chunk, np.float32).squeeze(), sr
+
+    def _gen_local(self, text, role):
+        ref, ref_text = self.ref(role)
+        yield from self.local.tts(speech_text.speakable(text), ref, ref_text)
 
     def _gen_kokoro(self, text, role):
         c = self.role(role).get("kokoro") or self.role("main").get("kokoro") or {"blend": {"bm_george": 1.0}}
@@ -498,13 +554,24 @@ class Server:
                 round(shimmer, 3), round(self.speed_for(role), 3), self.cfg.get("pacing")]
         return hashlib.sha1(json.dumps([conf, text], sort_keys=True).encode()).hexdigest()[:24]
 
-    def _engines(self):
+    def _engines(self, warm=True):
+        """The engines for the next line, in order. The local voice goes first while it's on;
+        then the rest, without `qwen` (the local voice replaces it) and without anything on this
+        card while a game runs."""
+        base = self._engines_base(warm=warm and not self.local.wanted())
+        if self.local.wanted():
+            return ["local"] + [e for e in base if e not in ("local", "qwen")]
+        if self.local.state == "away":
+            return [e for e in base if e != "qwen"] or base
+        return base
+
+    def _engines_base(self, warm=True):
         main, fb = self.order()
         if main == "lab":
             out = ["lab"] if self.lab_url() else []
             for e in (fb if isinstance(fb, list) else [fb]):
                 if e == "qwen" and self.qwen is None:
-                    if not out:                           # no lab at all: get the local voice ready now
+                    if not out and warm:                  # no lab at all: get the local voice ready now
                         self.warm_tts(local=True)
                     continue                              # (a lab that fails warms it in speak())
                 if e and e not in out:
@@ -512,7 +579,7 @@ class Server:
             return out
         if isinstance(fb, list):
             fb = next((e for e in fb if e != main), None)
-        if main == "qwen" and self.qwen is None:
+        if main == "qwen" and self.qwen is None and warm:
             self.warm_tts()
             # give a load in progress a moment (the window usually warmed it already)
             t0 = time.monotonic()
@@ -554,6 +621,7 @@ class Server:
                     sr = w.getframerate()
                     a = np.frombuffer(w.readframes(w.getnframes()), np.int16).astype(np.float32) / 32768.0
                 yield {"sr": sr, "engine": engine, "cached": True}
+                self._spoke(engine)
                 if cue:
                     yield self.cue(role, sr, add)
                 for i in range(0, len(a), sr // 5):
@@ -564,7 +632,7 @@ class Server:
                 first = next(gen)
             except Exception as e:
                 log(f"tts engine {engine} failed: {e}")
-                if engine == "lab" and self.qwen is None:
+                if engine == "lab" and self.qwen is None and not self.local.wanted():
                     self.warm_tts(local=True)         # only now: the next line can have the local cast voice
                 continue
             chunk, sr = first
@@ -573,6 +641,7 @@ class Server:
             pc = self.cfg.get("pacing", {})
             sh = SilenceShaper(sr, pc.get("max_pause_s", 0.12), pc.get("sentence_tail_s", 0.09))
             yield {"sr": sr, "engine": engine, "cached": False}
+            self._spoke(engine)
             if cue:
                 yield self.cue(role, sr, add)
             done = []
@@ -595,6 +664,10 @@ class Server:
             return
         raise RuntimeError("no TTS engine answered")
 
+    def _spoke(self, engine):
+        self.speaking_from = engine
+        self.publish()
+
     def tts(self, text, role="main"):
         t0 = time.monotonic()
         with self.tts_lock:
@@ -610,6 +683,7 @@ class Server:
         self.last = time.monotonic()
         if op == "ping":
             return {"ok": True, "whisper": self.whisper is not None, "qwen": self.qwen is not None,
+                    "local": self.local.status(),
                     "engine": self.order()[0], "lab": self.lab_url() is not None,
                     "targets": targets.resolve("voice.tts") is not None}
         if op == "warm":
@@ -660,6 +734,7 @@ class Server:
                     log("qwen voice unloaded (idle)")
             if idle > self.cfg.get("exit_after_seconds", 3600):
                 log("exiting (idle)")
+                self.local.stop("the voice server is leaving")
                 os._exit(0)
 
     def serve(self):
@@ -681,6 +756,8 @@ class Server:
         os.chmod(SOCK, 0o600)
         srv.listen(8)
         threading.Thread(target=self.janitor, daemon=True).start()
+        self.local.watch()
+        self.publish()
         main, fb = self.order()
         log("ready", SOCK, "engine", main, "then", ", ".join(fb) or "nothing",
             "(targets.toml)" if targets.resolve("voice.tts") is not None else "(voice.json)")
