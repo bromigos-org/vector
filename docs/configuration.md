@@ -100,11 +100,13 @@ uses `model` for both.
 
 | Engine | Where it runs |
 |---|---|
+| `local` | The local voice: a small Qwen3-TTS on this machine's NVIDIA card, in his voice. It goes first while it's on ([below](#the-local-voice)) |
 | `lab` | Your homelab's voice service, so your own GPU stays free |
 | `qwen` | Qwen3-TTS on this machine's GPU, in his designed voice |
 | `kokoro` | Kokoro on the CPU |
 
-The package's default is `lab`, then `qwen`, then `kokoro`. The `lab` engine finds the
+The package's default is `lab`, then `qwen`, then `kokoro`, with `local` in front of them
+while the local voice is on. The `lab` engine finds the
 service through bromigos-homelab's `voice` capability, unless `lab.url` names one. If the
 lab is down, or slower than `lab.first_audio_timeout_s` to start, the next engine speaks.
 `bromigos target` shows and switches where speech (`voice.tts`) and hearing (`voice.stt`)
@@ -116,9 +118,69 @@ recording of anyone was used ([voices/README.md](../voices/README.md)).
 Set up the local engines once:
 
 ```bash
-bromigos-holo setup voice       # Qwen3-TTS, Whisper and Kokoro, for a GPU
+bromigos-holo setup voice       # Qwen3-TTS, Whisper and Kokoro, for a GPU, and the local voice
 bromigos-holo setup voice-cpu   # Kokoro and a small Whisper, without a GPU
 ```
+
+### The local voice
+
+The local voice speaks in his own voice from your computer, and gets out of the way of
+your games. It's a small Qwen3-TTS (0.6B, 8-bit) on your NVIDIA card. It uses about 2.5 GB of
+the card's memory and starts speaking in under a tenth of a second. It hears
+with NVIDIA Parakeet on the processor, so hearing never touches the card. It speaks
+with the same reference voice as every other engine: `voices.main` in `voice.json`.
+
+- **When it runs.** It starts the first time he speaks or you talk to him, which takes
+  about four seconds. The lab speaks that first line. The very first start on a machine
+  takes longer, about 15 seconds, while CUDA compiles its kernels and it reads the
+  reference voice once. It leaves after ten minutes with nothing to say
+  (`local.idle_exit_s`).
+- **Games come first.** It leaves at once when a game starts, and stays away until the
+  game has been gone for 30 seconds (`local.game_clear_s`). The lab speaks and hears
+  meanwhile. It counts as a game when GameMode has a client, Steam's launcher runs a
+  game, a window is fullscreen, or anything outside the desktop holds 64 MiB or more of
+  the NVIDIA card (`local.gpu_min_mib`). The desktop means the compositor, the bar,
+  terminals, browsers and bromigOS's own pieces. Add command-line patterns that shouldn't
+  count to `local.gpu_allow`. Nothing of yours is paused, slowed or limited. The local
+  voice is the one that leaves.
+- **When it can't speak.** If it's still loading, or it fails, the next engine speaks
+  (the lab, then Kokoro). Three failures in ten minutes rest it for ten minutes. Now and
+  then the small model renders a short line as silence. It tries that line once more,
+  then hands it to the next engine. A render is also stopped once its voice has been
+  silent for 1.2 seconds, so a line can't run on.
+- **Numbers.** Its lines go through `holo/speech_text.py` first, which spells out
+  quantities, times, units and percentages. In testing, the small model garbled a line
+  full of digits in 3 renders out of 6, and none once the numbers were spelled out.
+  Versions, IP addresses, ids, paths and model names are left as written.
+- **The setting.** Auto, the default, turns it on when this machine has an NVIDIA card
+  with 8 GB or more (`local.min_vram_mib`), and leaves it off elsewhere. Settings ›
+  VECTOR has the switch and a line saying where he's speaking from right now. From a
+  terminal:
+
+  ```bash
+  bromigos-holo local-voice status   # the setting, and where he speaks from right now
+  bromigos-holo local-voice on       # or off, or auto
+  ```
+
+- **Its files.** The runtime goes into the voice environment
+  (`requirements/local-voice.txt`). If it's missing when the local voice is on, the
+  voice server installs it once, in the background. The models are about 1.9 GB, fetched
+  once into `~/.cache/bromigos/local-voice`. Each file is pinned to one revision and its
+  sha256 (`holo/local_models.py`). A file that doesn't match is deleted and never used.
+  `bromigos-holo setup local-voice` does both now.
+- **Where the models come from.**
+  - **Speech.** Qwen3-TTS 12 Hz 0.6B Base, by the Qwen team, Apache-2.0. We converted
+    it to GGUF from Qwen's official weights with qwentts.cpp's own tools
+    (`tools/convert-local-voice.sh` does it again and checks the hashes).
+  - **Hearing.** Parakeet TDT 0.6B v2, by NVIDIA, licensed under
+    [CC-BY-4.0](https://creativecommons.org/licenses/by/4.0/)
+    ([model card](https://huggingface.co/nvidia/parakeet-tdt-0.6b-v2)). We use the
+    int8 ONNX export
+    [istupakov/parakeet-tdt-0.6b-v2-onnx](https://huggingface.co/istupakov/parakeet-tdt-0.6b-v2-onnx),
+    unchanged.
+- **Its log.** `~/.local/state/bromigos/holo-local-voice.log`. `tools/test-local-voice-gpu.py`
+  tries it for real on your card. It refuses while the card is busy, and it never plays
+  a sound.
 
 ### Hearing
 
@@ -254,8 +316,9 @@ work. Build them with:
 | Command | What it installs | Where |
 |---|---|---|
 | `bromigos-holo setup brain` | Pydantic AI, Playwright and the tools' libraries | `~/.local/share/bromigos/venv-brain` |
-| `bromigos-holo setup voice` | Qwen3-TTS, Whisper and Kokoro, for a GPU | `~/.local/share/bromigos/venv-tts` |
+| `bromigos-holo setup voice` | Qwen3-TTS, Whisper and Kokoro, for a GPU, and the local voice | `~/.local/share/bromigos/venv-tts`, `~/.cache/bromigos/local-voice` |
 | `bromigos-holo setup voice-cpu` | Kokoro and a small Whisper | `~/.local/share/bromigos/venv-tts` |
+| `bromigos-holo setup local-voice` | The local voice's runtime, and its models | `~/.local/share/bromigos/venv-tts`, `~/.cache/bromigos/local-voice` |
 
 They use `uv` when it's installed. The voice needs `uv`, because `uv` fetches Python
 3.12. The package lists come from `requirements/`.

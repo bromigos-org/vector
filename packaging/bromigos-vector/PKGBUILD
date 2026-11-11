@@ -55,6 +55,7 @@ check() {
   python tools/test-launcher-verbs.py
   # the dotfiles' privacy guard: every sops value encrypted, however it nests
   python tools/test-privacy-guard.py
+  python tools/test-speech-text.py
 }
 
 package() {
