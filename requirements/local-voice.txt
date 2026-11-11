@@ -1,0 +1,12 @@
+# VECTOR's local voice (holo/local_voice.py): Qwen3-TTS 0.6B as 8-bit GGUF through qwentts.cpp
+# on an NVIDIA card, and Parakeet through onnx-asr on the processor. `bromigos-holo setup
+# local-voice` (and the voice server, once, when the local voice is on and these are missing)
+# installs them into ~/.local/share/bromigos/venv-tts. qwentts-cpp-python is pinned exactly: its
+# library is built from one qwentts.cpp revision (6fae9291), the one the models were converted
+# with (holo/local_models.py). Its Linux wheel is built for CUDA 12, so the CUDA 12 runtime and
+# cuBLAS come with it (the voice venv's torch brings CUDA 13's).
+qwentts-cpp-python==0.5.0
+nvidia-cuda-runtime-cu12==12.9.79
+nvidia-cublas-cu12==12.9.2.10
+faster-qwen3-tts>=0.5.3
+onnx-asr>=0.12
