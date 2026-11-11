@@ -83,6 +83,8 @@ to `main` (`.github/workflows/tests.yml`). VECTOR's merge tool waits for them.
 | `test-attach.py` | Attachments: kinds, secrets refused, caps, images, the message for each brain, the socket's check and `ask --file` (CI runs it) |
 | `test-talk.py` | He speaks with his real voice: the portrait stream's `voice`, its fall back to a cadence, and the projector's speaking contacts, without GL (CI runs it) |
 | `test-docs-tools.py` | `docs_search` and `docs_read`: every docs root, the dotfiles alone, nothing outside the roots or secret-looking, in a throwaway home (CI runs it) |
+| `test-speech-text.py` | The local voice's number normaliser: the five test lines, quantities spelled out, versions, addresses and ids left as written (CI and the package build run it) |
+| `test-local-voice.py` | The local voice with everything faked: game signs, the setting, pinned models, the worker's life (started on speech, gone for a game, back after it, idle exit) and the voice server's order (CI runs it) |
 
 **This one reads your own machine and network.** It changes nothing of yours. It passes only
 on a machine with a `~/.dotfiles` repository, an SSH key GitHub knows and a cluster to reach.
@@ -90,6 +92,13 @@ on a machine with a `~/.dotfiles` repository, an SSH key GitHub knows and a clus
 | Test | What it does |
 |---|---|
 | `test-shell.py` | Checks the terminal's refusals without running them. Then it runs allowed commands for real, in his sandbox in your own home: `git status` in `~/.dotfiles`, a user unit's status, a paper-trading clock on the internet, GitHub over SSH, your cluster's namespaces and `gh auth status` |
+
+**This one uses your NVIDIA card.** It refuses while the card is busy, a game included,
+and it never plays a sound. Run it in the voice environment.
+
+| Test | What it does |
+|---|---|
+| `test-local-voice-gpu.py` | The local voice for real: speaks five lines into WAV files, hears them back, steps aside for a pretend game and comes back. It prints the times and the card's memory |
 
 **Offscreen renders.** These need an EGL device and run with `python3`. They never open a
 window.
